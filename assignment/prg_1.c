@@ -8,11 +8,19 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+/* Constant definition */
+#define DATA_FILE "data.txt"
+#define SRC_FILE "src.txt"
+
+
 /* Global variables delcaration */
 pthread_mutex_t mutex; // Mutex lock
 sem_t semA, semB, semC; // Semaphores
 pthread_t tidA, tidB, tidC; // Thread ID
 pthread_attr_t attr; // Set of thread attributes
+//TODO: Probably have to set up pipe stuff here?
+
+//TODO: something with struct and datafile
 
 void *runnerA(void *param); // Tread A function
 void *runnerB(void *param); // Thread B function
@@ -21,19 +29,45 @@ void initData();
 
 int main(int argc, char *argv[])
 {
-    /* TBU: Probably error checking */
-    // if(argc!=2){
-	//     fprintf(stderr,"usage: a.out <integer value>\n");
-	//     return -1;
-    // }
-    // if(atoi(argv[1])<0){
-	//     fprintf(stderr,"%d must be >=0\n",atoi(argv[1]));
-	//     return -1;
-    // }
+    /* Initialise pipe */
+    int fd[2];
+    // Error handling
+    if (pipe(fd)<0)
+        perror("Pipe error");
 
-    initData(); //Initialise threads and semaphores
+    /* Opening file */
+    FILE *data_fp = fopen(DATA_FILE, "r"); // "data.txt" file read
+    // Error handling
+    if (data_fp == NULL){
+        perror("Data file error");
+        // Pipe status error handling
+        if (fd[0]) {
+            if (close(fd[0])) 
+                perror("File descriptor error");
+        }
+        if (fd[1]) {
+            if (close(fd[1]))
+                perror("File descriptor error");
+        }
+        return 1;
+    }
+
+    FILE *src_fp = fopen(SRC_FILE, "w"); // "src.txt" file write
+    //Error handling
+    if (src_fp == NULL){
+        perror("Src file error");
+        if (fclose(data_fp))
+            perror("Data file/close error");
+        return 1;
+    }
+
+
+
+
+    initData(); // Initialise threads and semaphores
 
     //pthread_attr_init(&attr); //TODO: Might be uneccessary
+
 
     // TODO: Get data from data.txt
 
@@ -51,6 +85,8 @@ int main(int argc, char *argv[])
     pthread_join(tidC, NULL);
 
     // TODO: Probably do something with the timer here
+
+    return 0; // Program excuted all good!
 }
 
 void initData()
