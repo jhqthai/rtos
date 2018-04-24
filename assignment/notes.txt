@@ -1,0 +1,23 @@
+Notes:
+
+Create 3 threads
+- read data from one file
+- write data to another file (using pipe)
+  
+Run 3 threads iteratively after created a pipe
+---------
+Thread A    - writes one line of characters to pipe
+            - from data.txt to pipe
+
+Thread B    - reads data from pipe
+            - PASS* data to thread C
+
+Thread C    - read passed data
+            - determine* data region
+            - if data from content region, write to "src.txt"
+
+Thread A read last line = nearly finish
+-> can have a bool turn on
+-> Thread C finish and if bool is on;
+--> end all threads
+--> returns total time.
