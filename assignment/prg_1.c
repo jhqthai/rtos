@@ -53,7 +53,6 @@ int main(int argc, char *argv[])
     // TODO: Probably do something with the timer here
 }
 
-
 void initData()
 {
     pthread_mutex_init(&mutex, NULL); // Create mutex lock
@@ -65,4 +64,53 @@ void initData()
     pthread_attr_init(&attr); // Initialise default attributes
 }
 
+void *runnerA(void *param)
+{
+    sem_wait(&semA); // Wait till unlocked
+    pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
+    //TODO: Write data to pipe
+
+    //TEST
+    printf("Thread A\n");
+
+    pthread_mutex_unlock(&mutex); // Release mutex lock
+    sem_post(&semB); // Release and unlock semaphore B 
+
+}
+
+void *runnerB(void *param)
+{
+    sem_wait(&semB); // Wait till unlocked
+    pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
+
+    //TODO: reads data from pipe
+
+    //TODO: pass data to thread C
+
+    //TEST
+    printf("Thread B\n");
+
+    pthread_mutex_unlock(&mutex); // Release mutex lock
+    sem_post(&semC); // Release and unlock semaphore C 
+
+}
+
+void *runnerC(void *param)
+{
+    sem_wait(&semC); // Wait till unlocked
+    pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
+
+    //TODO: read passed data
+
+    //TODO: Dtermine data region
+
+    //TODO: write data to src.txt
+
+    //TEST
+    printf("Thread C\n");
+
+    pthread_mutex_unlock(&mutex); // Release mutex lock
+    sem_post(&semC); // Release and unlock semaphore C 
+
+}
