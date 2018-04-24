@@ -21,3 +21,7 @@ Thread A read last line = nearly finish
 -> Thread C finish and if bool is on;
 --> end all threads
 --> returns total time.
+
+Todo:
+pass param
+write to pipe

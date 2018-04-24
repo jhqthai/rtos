@@ -7,11 +7,22 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 /* Constant definition */
 #define DATA_FILE "data.txt"
 #define SRC_FILE "src.txt"
 
+#define BUFFER_SIZE 1024
+
+#define handle_error_en(en, msg) \
+        do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
+
+#define handle_error(msg) \
+        do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 /* Global variables delcaration */
 pthread_mutex_t mutex; // Mutex lock
@@ -19,12 +30,35 @@ sem_t semA, semB, semC; // Semaphores
 pthread_t tidA, tidB, tidC; // Thread ID
 pthread_attr_t attr; // Set of thread attributes
 //TODO: Probably have to set up pipe stuff here?
+typedef struct
+{
+    char buff[BUFFER_SIZE]; // Buffer to store reads
+} struct_pipe;
 
 //TODO: something with struct and datafile
+typedef struct
+{
+    int *fd_read;
+    int *fd_write; // Location of file data in memory to write
+    FILE *fp; // File pointer to read from data.txt
+} struct_a;
 
-void *runnerA(void *param); // Tread A function
-void *runnerB(void *param); // Thread B function
-void *runnerC(void *param); // Thread C funtion
+typedef struct
+{
+    int *fd_read;
+    int *fd_write; // Location of file data in memory to read
+    struct_pipe *pipe;
+} struct_b;
+
+typedef struct
+{
+
+} struct_c;
+
+
+static void *thread_start_a(struct_a *s); // Tread A function
+static void *thread_start_b(struct_b *s); // Thread B function
+static void *thread_start_c(struct_c *s); // Thread C funtion
 void initData();
 
 int main(int argc, char *argv[])
@@ -33,49 +67,49 @@ int main(int argc, char *argv[])
     int fd[2];
     // Error handling
     if (pipe(fd)<0)
-        perror("Pipe error");
+        handle_error("pipe error");
 
     /* Opening file */
     FILE *data_fp = fopen(DATA_FILE, "r"); // "data.txt" file read
     // Error handling
     if (data_fp == NULL){
-        perror("Data file error");
+        perror("fopen data_fp error");
         // Pipe status error handling
         if (fd[0]) {
             if (close(fd[0])) 
-                perror("File descriptor error");
+                perror("fd error");
         }
         if (fd[1]) {
             if (close(fd[1]))
-                perror("File descriptor error");
+                perror("fd error");
         }
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
     FILE *src_fp = fopen(SRC_FILE, "w"); // "src.txt" file write
     //Error handling
     if (src_fp == NULL){
-        perror("Src file error");
+        perror("fopen src_fp error");
         if (fclose(data_fp))
-            perror("Data file/close error");
-        return 1;
+            perror("fclose data_fp error");
+        exit(EXIT_FAILURE);
     }
-
-
-
 
     initData(); // Initialise threads and semaphores
 
     //pthread_attr_init(&attr); //TODO: Might be uneccessary
 
+    struct_pipe pipe = {0}; // UHHHHHHHHHHH
+    
+    struct_a a = {&fd[0], &fd[1], data_fp};
+    struct_b b = {&fd[0], &fd[1], &pipe};
+    struct_c c;
 
-    // TODO: Get data from data.txt
-
-    // TODO: Maybe the last param is what should be passed in?
+    // TODO: Passing the correct param to thread
     /* Create threads */
-    pthread_create(&tidA, &attr, runnerA, param); // Create thread A
-    pthread_create(&tidB, &attr, runnerB, param); // Create thread B
-    pthread_create(&tidC, &attr, runnerC, param); // Create thread C
+    pthread_create(&tidA, &attr, (void *)thread_start_a, &a); // Create thread A
+    pthread_create(&tidB, &attr, (void *)thread_start_b, &b); // Create thread B
+    pthread_create(&tidC, &attr, (void *)thread_start_c, &c); // Create thread C
 
     sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
 
@@ -84,9 +118,10 @@ int main(int argc, char *argv[])
     pthread_join(tidB, NULL);
     pthread_join(tidC, NULL);
 
+
     // TODO: Probably do something with the timer here
 
-    return 0; // Program excuted all good!
+    exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
 void initData()
@@ -100,13 +135,17 @@ void initData()
     pthread_attr_init(&attr); // Initialise default attributes
 }
 
-void *runnerA(void *param)
+static void *thread_start_a(struct_a *s)
 {
+    char buff[BUFFER_SIZE];
     sem_wait(&semA); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
-    //TODO: Write data to pipe
-
+    fgets(buff, sizeof(buff), s->fp); // Put character from data.txt into a temporary buffer
+    //TODO: Write data to pipe FIX THIS?
+    close(*s->fd_read); // close fd read before writing
+    write(*s->fd_write, buff, strlen(buff)); // Write character from buffer to file descriptor (memory)
+    printf("Fd_write: %i\n", *s->fd_write);
     //TEST
     printf("Thread A\n");
 
@@ -115,13 +154,15 @@ void *runnerA(void *param)
 
 }
 
-void *runnerB(void *param)
+static void *thread_start_b(struct_b *s)
 {
     sem_wait(&semB); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
     //TODO: reads data from pipe
-
+    read(*(s->fd_read), s->pipe->buff, BUFFER_SIZE);
+    printf("Fd_read: %i\n", *(s->fd_read));
+    printf("%s", s->pipe->buff);
     //TODO: pass data to thread C
 
     //TEST
@@ -132,7 +173,7 @@ void *runnerB(void *param)
 
 }
 
-void *runnerC(void *param)
+static void *thread_start_c(struct_c *s)
 {
     sem_wait(&semC); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
@@ -147,6 +188,5 @@ void *runnerC(void *param)
     printf("Thread C\n");
 
     pthread_mutex_unlock(&mutex); // Release mutex lock
-    sem_post(&semC); // Release and unlock semaphore C 
-
+    sem_post(&semA); // Release and unlock semaphore A 
 }
