@@ -182,9 +182,6 @@ static void *thread_start_b(struct_b *s)
     //TODO: pass data to thread C
     read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
 
-    
-
-
 
     //TEST
     printf("Thread B\n");
