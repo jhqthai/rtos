@@ -41,6 +41,7 @@ typedef struct
     int *fd_read;
     int *fd_write; // Location of file data in memory to write
     FILE *fp; // File pointer to read from data.txt
+    int read_status;
 } struct_a;
 
 typedef struct
@@ -63,6 +64,7 @@ void initData();
 
 int main(int argc, char *argv[])
 {
+    int read_status;
     /* Initialise pipe */
     int fd[2];
     // Error handling
@@ -101,18 +103,20 @@ int main(int argc, char *argv[])
 
     struct_pipe pipe = {0}; // UHHHHHHHHHHH
     
-    struct_a a = {&fd[0], &fd[1], data_fp};
+    struct_a a = {&fd[0], &fd[1], data_fp, read_status};
     struct_b b = {&fd[0], &fd[1], &pipe};
     struct_c c = {&pipe};
 
-    // TODO: Passing the correct param to thread
-    /* Create threads */
-    pthread_create(&tidA, &attr, (void *)thread_start_a, &a); // Create thread A
-    pthread_create(&tidB, &attr, (void *)thread_start_b, &b); // Create thread B
-    pthread_create(&tidC, &attr, (void *)thread_start_c, &c); // Create thread C
+    while (read_status != EOF){
+        // TODO: Passing the correct param to thread
+        /* Create threads */
+        pthread_create(&tidA, &attr, (void *)thread_start_a, &a); // Create thread A
+        pthread_create(&tidB, &attr, (void *)thread_start_b, &b); // Create thread B
+        pthread_create(&tidC, &attr, (void *)thread_start_c, &c); // Create thread C
 
-    sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
-
+        sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
+    }
+    
     /* Wait for thread to exit */
     pthread_join(tidA, NULL);
     pthread_join(tidB, NULL);
@@ -127,6 +131,9 @@ int main(int argc, char *argv[])
     close(fd[0]);
     close(fd[1]);
 
+    //probably needa close read and write file somewhere
+    fclose(data_fp);
+    
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
@@ -147,9 +154,11 @@ static void *thread_start_a(struct_a *s)
     sem_wait(&semA); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
-    fgets(buff, sizeof(buff), s->fp); // Put character from data.txt into a temporary buffer
-    //printf("from fgets: %s\n", buff);
-    
+    if(fgets(buff, sizeof(buff), s->fp) == NULL) // Put character from data.txt into a temporary buffer
+    {
+        s->read_status = EOF;
+    }
+    printf("from fgets: %s\n", buff);
     //Write data to pipe
     write(*s->fd_write, buff, strlen(buff)); // Write character from buffer to file descriptor (memory)
     

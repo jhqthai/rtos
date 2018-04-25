@@ -23,5 +23,7 @@ Thread A read last line = nearly finish
 --> returns total time.
 
 Todo:
-pass param
-write to pipe
+
+
+Thoughts:
+probably only need 1 struct that contains everything (still need struct_pipe separately)
