@@ -210,8 +210,8 @@ static void *thread_start_c(struct_c *s)
     //TODO: Determine data region
     if (isContRegion)
     {
-        fprintf(s->fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file
         printf("Write to file.\n");
+        fprintf(s->fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file   
     }
     // Check if beginning of content region
     if(!(strncmp(s->pipe->buff, CONT_REG, strlen(CONT_REG))))
