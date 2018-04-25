@@ -27,17 +27,17 @@ int main(int argc, char*argv[])
  // pthread_attr_t attr;/*set of thread attributes*/
 
   if(argc!=2){
-	fprintf(stderr,"usage: a.out <integer value>\n");
-	return -1;
+	  fprintf(stderr,"usage: a.out <integer value>\n");
+	  return -1;
   }
   if(atoi(argv[1])<0){
-	fprintf(stderr,"%d must be >=0\n",atoi(argv[1]));
-	return -1;
+	  fprintf(stderr,"%d must be >=0\n",atoi(argv[1]));
+  	return -1;
   }
   initializeData();
 
   /*get the default attributes*/
-  pthread_attr_init(&attr);
+  //pthread_attr_init(&attr);
   
   /*create the thread 1*/
   pthread_create(&tid1,&attr,runnerOne,argv[1]);
