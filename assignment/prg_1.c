@@ -16,6 +16,8 @@
 #define DATA_FILE "data.txt"
 #define SRC_FILE "src.txt"
 
+#define CONT_REG "end_header"
+
 #define BUFFER_SIZE 1024
 
 #define handle_error_en(en, msg) \
@@ -30,10 +32,12 @@ sem_t semA, semB, semC; // Semaphores
 pthread_t tidA, tidB, tidC; // Thread ID
 pthread_attr_t attr; // Set of thread attributes
 int read_status;
+int isContRegion;
 
 //TODO: Probably have to set up pipe stuff here?
 typedef struct
 {
+    int isRead;
     char buff[BUFFER_SIZE]; // Buffer to store reads
 } struct_pipe;
 
@@ -54,7 +58,9 @@ typedef struct
 
 typedef struct
 {
+    //int isContRegion;
     struct_pipe *pipe;
+    FILE *fp; // File pointer to write to src.txt
 } struct_c;
 
 
@@ -65,6 +71,8 @@ void initData();
 
 int main(int argc, char *argv[])
 {
+    isContRegion = 0;
+    
     /* Initialise pipe */
     int fd[2];
     // Error handling
@@ -100,12 +108,11 @@ int main(int argc, char *argv[])
     initData(); // Initialise threads and semaphores
 
     //pthread_attr_init(&attr); //TODO: Might be uneccessary
-
     struct_pipe pipe = {0}; // UHHHHHHHHHHH
     
     struct_a a = {&fd[0], &fd[1], data_fp};
     struct_b b = {&fd[0], &fd[1], &pipe};
-    struct_c c = {&pipe};
+    struct_c c = {&pipe, src_fp};
 
     while (read_status != EOF){
         // TODO: Passing the correct param to thread
@@ -180,7 +187,7 @@ static void *thread_start_b(struct_b *s)
     //close(*s->fd_write);
     //TODO: reads data from pipe
     //TODO: pass data to thread C
-    read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
+    s->pipe->isRead = read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
 
 
     //TEST
@@ -196,14 +203,26 @@ static void *thread_start_c(struct_c *s)
     sem_wait(&semC); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
-    //TODO: read passed data
+    //test
+    printf("Thread C\n");
     
+    //TODO: read passed data
     //TODO: Determine data region
-
+    if (isContRegion)
+    {
+        fprintf(s->fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file
+        printf("Write to file.\n");
+    }
+    // Check if beginning of content region
+    if(!(strncmp(s->pipe->buff, CONT_REG, strlen(CONT_REG))))
+    {
+        isContRegion = 1;
+        printf("ENDHEADER EQUAL!\n");
+    }
     //TODO: write data to src.txt
 
     //TEST
-    printf("Thread C\n");
+    
     printf("Read passed data: %s\n", s->pipe->buff);
     memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks?
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
