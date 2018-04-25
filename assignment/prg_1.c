@@ -29,6 +29,8 @@ pthread_mutex_t mutex; // Mutex lock
 sem_t semA, semB, semC; // Semaphores
 pthread_t tidA, tidB, tidC; // Thread ID
 pthread_attr_t attr; // Set of thread attributes
+int read_status;
+
 //TODO: Probably have to set up pipe stuff here?
 typedef struct
 {
@@ -41,7 +43,6 @@ typedef struct
     int *fd_read;
     int *fd_write; // Location of file data in memory to write
     FILE *fp; // File pointer to read from data.txt
-    int read_status;
 } struct_a;
 
 typedef struct
@@ -64,7 +65,6 @@ void initData();
 
 int main(int argc, char *argv[])
 {
-    int read_status;
     /* Initialise pipe */
     int fd[2];
     // Error handling
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 
     struct_pipe pipe = {0}; // UHHHHHHHHHHH
     
-    struct_a a = {&fd[0], &fd[1], data_fp, read_status};
+    struct_a a = {&fd[0], &fd[1], data_fp};
     struct_b b = {&fd[0], &fd[1], &pipe};
     struct_c c = {&pipe};
 
@@ -115,12 +115,12 @@ int main(int argc, char *argv[])
         pthread_create(&tidC, &attr, (void *)thread_start_c, &c); // Create thread C
 
         sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
+        /* Wait for thread to exit */
+        pthread_join(tidA, NULL);
+        pthread_join(tidB, NULL);
+        pthread_join(tidC, NULL);
     }
     
-    /* Wait for thread to exit */
-    pthread_join(tidA, NULL);
-    pthread_join(tidB, NULL);
-    pthread_join(tidC, NULL);
 
 
     // TODO: Probably do something with the timer here
@@ -156,14 +156,15 @@ static void *thread_start_a(struct_a *s)
 
     if(fgets(buff, sizeof(buff), s->fp) == NULL) // Put character from data.txt into a temporary buffer
     {
-        s->read_status = EOF;
+        read_status = EOF;
     }
-    printf("from fgets: %s\n", buff);
+    //close(*s->fd_read);
     //Write data to pipe
     write(*s->fd_write, buff, strlen(buff)); // Write character from buffer to file descriptor (memory)
     
     //TEST
     printf("Thread A\n");
+    printf("from fgets: %s\n", buff);
     // printf("Fd_write: %i\n", *s->fd_write);
     // printf("Fd_read: %i\n", *s->fd_read);
     pthread_mutex_unlock(&mutex); // Release mutex lock
@@ -176,9 +177,14 @@ static void *thread_start_b(struct_b *s)
     sem_wait(&semB); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
+    //close(*s->fd_write);
     //TODO: reads data from pipe
-    read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
     //TODO: pass data to thread C
+    read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
+
+    
+
+
 
     //TEST
     printf("Thread B\n");
@@ -201,7 +207,9 @@ static void *thread_start_c(struct_c *s)
 
     //TEST
     printf("Thread C\n");
-    printf("Read passed data: %s", s->pipe->buff);
+    printf("Read passed data: %s\n", s->pipe->buff);
+    memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks?
+    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     pthread_mutex_unlock(&mutex); // Release mutex lock
     sem_post(&semA); // Release and unlock semaphore A 
 }
