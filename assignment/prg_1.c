@@ -71,6 +71,8 @@ void initData();
 
 int main(int argc, char *argv[])
 {
+    clock_t time_start = clock(); // Starting timer
+
     isContRegion = 0;
     
     /* Initialise pipe */
@@ -141,6 +143,9 @@ int main(int argc, char *argv[])
     //probably needa close read and write file somewhere
     fclose(data_fp);
     
+    clock_t time_end = clock();
+    double time_spent = (double)(time_end - time_start)/ CLOCKS_PER_SEC;
+    printf("Runtime: %f\n", time_spent);
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
