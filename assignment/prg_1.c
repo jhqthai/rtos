@@ -28,13 +28,15 @@
 
 /* Global variables delcaration */
 
-sem_t semA, semB, semC; // Semaphores
 
 int read_status;
 int isContRegion;
 
 typedef struct
 {
+    sem_t *write1; 
+    sem_t *read1; 
+    sem_t *justify; // Semaphores
     pthread_mutex_t *mutex; // Mutex lock
     pthread_attr_t *attr; // Set of thread attributes
 } s_data;
@@ -72,6 +74,9 @@ int main(int argc, char *argv[])
     pthread_t tidA, tidB, tidC; // Thread ID
     pthread_attr_t attr; // Set of thread attributes
     pthread_mutex_t mutex; // Mutex lock
+    sem_t write1; 
+    sem_t read1; 
+    sem_t justify; // Semaphores
 
     // Piping
     if (pipe(fd)<0)
@@ -103,7 +108,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    s_data d = {&mutex, &attr};
+    s_data d = {&write1, &read1, &justify, &mutex, &attr};
     struct_pipe pipe = {0}; // UHHHHHHHHHHH  
     s_thread s = {&fd[0], &fd[1], data_fp, src_fp, &pipe, &d};
     initData(&d); // Initialise threads and semaphores
@@ -117,7 +122,7 @@ int main(int argc, char *argv[])
         pthread_create(&tidB, &attr, (void *)thread_start_b, &s); // Create thread B
         pthread_create(&tidC, &attr, (void *)thread_start_c, &s); // Create thread C
 
-        sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
+        sem_post(&write1); // Unlock semaphore A --This will allow thread A to run first
         /* Wait for thread to exit */
         pthread_join(tidA, NULL);
         pthread_join(tidB, NULL);
@@ -141,9 +146,9 @@ void initData(s_data *d)
 {
     pthread_mutex_init(d->mutex, NULL); // Create mutex lock
 
-    sem_init(&semA, 0, 0); // Create semaphore A and block subroutine
-    sem_init(&semB, 0, 0); // Create semaphore B and block subroutine
-    sem_init(&semC, 0, 0); // Create semaphore C and block subroutine
+    sem_init(d->write1, 0, 0); // Create semaphore A and block subroutine
+    sem_init(d->read1, 0, 0); // Create semaphore B and block subroutine
+    sem_init(d->justify, 0, 0); // Create semaphore C and block subroutine
 
     pthread_attr_init(d->attr); // Initialise default attributes
 }
@@ -151,7 +156,7 @@ void initData(s_data *d)
 static void *thread_start_a(s_thread *s)
 {
     char buff[BUFFER_SIZE];
-    sem_wait(&semA); // Wait till unlocked
+    sem_wait(s->d->write1); // Wait till unlocked
     pthread_mutex_lock(s->d->mutex); // Lock mutex to prevent concurrent threads execution
 
     if(fgets(buff, sizeof(buff), s->data_fp) == NULL) // Put character from data.txt into a temporary buffer
@@ -168,13 +173,13 @@ static void *thread_start_a(s_thread *s)
     // printf("Fd_write: %i\n", *s->fd_write);
     // printf("Fd_read: %i\n", *s->fd_read);
     pthread_mutex_unlock(s->d->mutex); // Release mutex lock
-    sem_post(&semB); // Release and unlock semaphore B 
+    sem_post(s->d->read1); // Release and unlock semaphore B 
 
 }
 
 static void *thread_start_b(s_thread *s)
 {
-    sem_wait(&semB); // Wait till unlocked
+    sem_wait(s->d->read1); // Wait till unlocked
     pthread_mutex_lock(s->d->mutex); // Lock mutex to prevent concurrent threads execution
 
     // Reads data from pipe and pass data to thread C
@@ -185,13 +190,13 @@ static void *thread_start_b(s_thread *s)
     printf("Thread B\n");
     printf("Read out: %s\n", s->pipe->buff);
     pthread_mutex_unlock(s->d->mutex); // Release mutex lock
-    sem_post(&semC); // Release and unlock semaphore C 
+    sem_post(s->d->justify); // Release and unlock semaphore C 
 
 }
 
 static void *thread_start_c(s_thread *s)
 {
-    sem_wait(&semC); // Wait till unlocked
+    sem_wait(s->d->justify); // Wait till unlocked
     pthread_mutex_lock(s->d->mutex); // Lock mutex to prevent concurrent threads execution
 
     //test
@@ -216,5 +221,5 @@ static void *thread_start_c(s_thread *s)
     memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks?
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     pthread_mutex_unlock(s->d->mutex); // Release mutex lock
-    sem_post(&semA); // Release and unlock semaphore A 
+    sem_post(s->d->write1); // Release and unlock semaphore A 
 }
