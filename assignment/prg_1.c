@@ -41,32 +41,39 @@ typedef struct
     char buff[BUFFER_SIZE]; // Buffer to store reads
 } struct_pipe;
 
-//TODO: something with struct and datafile
+// //TODO: something with struct and datafile
+// typedef struct
+// {
+//     int *fd_read;
+//     int *fd_write; // Location of file data in memory to write
+//     FILE *fp; // File pointer to read from data.txt
+// } struct_a;
+
+// typedef struct
+// {
+//     int *fd_read;
+//     int *fd_write; // Location of file data in memory to read
+//     struct_pipe *pipe;
+// } struct_b;
+
+// typedef struct
+// {
+//     //int isContRegion;
+//     struct_pipe *pipe;
+//     FILE *fp; // File pointer to write to src.txt
+// } struct_c;
+
 typedef struct
 {
     int *fd_read;
     int *fd_write; // Location of file data in memory to write
     FILE *fp; // File pointer to read from data.txt
-} struct_a;
-
-typedef struct
-{
-    int *fd_read;
-    int *fd_write; // Location of file data in memory to read
     struct_pipe *pipe;
-} struct_b;
+}s_thread;
 
-typedef struct
-{
-    //int isContRegion;
-    struct_pipe *pipe;
-    FILE *fp; // File pointer to write to src.txt
-} struct_c;
-
-
-static void *thread_start_a(struct_a *s); // Tread A function
-static void *thread_start_b(struct_b *s); // Thread B function
-static void *thread_start_c(struct_c *s); // Thread C funtion
+static void *thread_start_a(s_thread *t); // Tread A function
+static void *thread_start_b(s_thread *t); // Thread B function
+static void *thread_start_c(s_thread *t); // Thread C funtion
 void initData();
 
 int main(int argc, char *argv[])
@@ -112,16 +119,17 @@ int main(int argc, char *argv[])
     //pthread_attr_init(&attr); //TODO: Might be uneccessary
     struct_pipe pipe = {0}; // UHHHHHHHHHHH
     
-    struct_a a = {&fd[0], &fd[1], data_fp};
-    struct_b b = {&fd[0], &fd[1], &pipe};
-    struct_c c = {&pipe, src_fp};
+    // struct_a a = {&fd[0], &fd[1], data_fp};
+    // struct_b b = {&fd[0], &fd[1], &pipe};
+    // struct_c c = {&pipe, src_fp};
+    s_thread s = {&fd[0], &fd[1], data_fp, &pipe};
 
     while (read_status != EOF){
         // TODO: Passing the correct param to thread
         /* Create threads */
-        pthread_create(&tidA, &attr, (void *)thread_start_a, &a); // Create thread A
-        pthread_create(&tidB, &attr, (void *)thread_start_b, &b); // Create thread B
-        pthread_create(&tidC, &attr, (void *)thread_start_c, &c); // Create thread C
+        pthread_create(&tidA, &attr, (void *)thread_start_a, &s); // Create thread A
+        pthread_create(&tidB, &attr, (void *)thread_start_b, &s); // Create thread B
+        pthread_create(&tidC, &attr, (void *)thread_start_c, &s); // Create thread C
 
         sem_post(&semA); // Unlock semaphore A --This will allow thread A to run first
         /* Wait for thread to exit */
@@ -160,7 +168,7 @@ void initData()
     pthread_attr_init(&attr); // Initialise default attributes
 }
 
-static void *thread_start_a(struct_a *s)
+static void *thread_start_a(s_thread *s)
 {
     char buff[BUFFER_SIZE];
     sem_wait(&semA); // Wait till unlocked
@@ -184,7 +192,7 @@ static void *thread_start_a(struct_a *s)
 
 }
 
-static void *thread_start_b(struct_b *s)
+static void *thread_start_b(s_thread *s)
 {
     sem_wait(&semB); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
@@ -203,7 +211,7 @@ static void *thread_start_b(struct_b *s)
 
 }
 
-static void *thread_start_c(struct_c *s)
+static void *thread_start_c(s_thread *s)
 {
     sem_wait(&semC); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
