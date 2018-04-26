@@ -41,33 +41,13 @@ typedef struct
     char buff[BUFFER_SIZE]; // Buffer to store reads
 } struct_pipe;
 
-// //TODO: something with struct and datafile
-// typedef struct
-// {
-//     int *fd_read;
-//     int *fd_write; // Location of file data in memory to write
-//     FILE *fp; // File pointer to read from data.txt
-// } struct_a;
-
-// typedef struct
-// {
-//     int *fd_read;
-//     int *fd_write; // Location of file data in memory to read
-//     struct_pipe *pipe;
-// } struct_b;
-
-// typedef struct
-// {
-//     //int isContRegion;
-//     struct_pipe *pipe;
-//     FILE *fp; // File pointer to write to src.txt
-// } struct_c;
-
+//TODO: something with struct and datafile
 typedef struct
 {
     int *fd_read;
     int *fd_write; // Location of file data in memory to write
-    FILE *fp; // File pointer to read from data.txt
+    FILE *data_fp; // File pointer to read from data.txt
+    FILE *src_fp;  // File pointer to write to src.txt
     struct_pipe *pipe;
 }s_thread;
 
@@ -116,13 +96,8 @@ int main(int argc, char *argv[])
 
     initData(); // Initialise threads and semaphores
 
-    //pthread_attr_init(&attr); //TODO: Might be uneccessary
-    struct_pipe pipe = {0}; // UHHHHHHHHHHH
-    
-    // struct_a a = {&fd[0], &fd[1], data_fp};
-    // struct_b b = {&fd[0], &fd[1], &pipe};
-    // struct_c c = {&pipe, src_fp};
-    s_thread s = {&fd[0], &fd[1], data_fp, &pipe};
+    struct_pipe pipe = {0}; // UHHHHHHHHHHH  
+    s_thread s = {&fd[0], &fd[1], data_fp, src_fp, &pipe};
 
     while (read_status != EOF){
         // TODO: Passing the correct param to thread
@@ -137,12 +112,6 @@ int main(int argc, char *argv[])
         pthread_join(tidB, NULL);
         pthread_join(tidC, NULL);
     }
-    
-
-
-    // TODO: Probably do something with the timer here
-    // while (!eof)
-    // continue running threads
 
     //close read and write pipe
     close(fd[0]);
@@ -174,11 +143,11 @@ static void *thread_start_a(s_thread *s)
     sem_wait(&semA); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
-    if(fgets(buff, sizeof(buff), s->fp) == NULL) // Put character from data.txt into a temporary buffer
+    if(fgets(buff, sizeof(buff), s->data_fp) == NULL) // Put character from data.txt into a temporary buffer
     {
-        read_status = EOF;
+        read_status = EOF; // End of file flag
     }
-    //close(*s->fd_read);
+
     //Write data to pipe
     write(*s->fd_write, buff, strlen(buff)); // Write character from buffer to file descriptor (memory)
     
@@ -197,9 +166,7 @@ static void *thread_start_b(s_thread *s)
     sem_wait(&semB); // Wait till unlocked
     pthread_mutex_lock(&mutex); // Lock mutex to prevent concurrent threads execution
 
-    //close(*s->fd_write);
-    //TODO: reads data from pipe
-    //TODO: pass data to thread C
+    // Reads data from pipe and pass data to thread C
     s->pipe->isRead = read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
 
 
@@ -219,23 +186,21 @@ static void *thread_start_c(s_thread *s)
     //test
     printf("Thread C\n");
     
-    //TODO: read passed data
-    //TODO: Determine data region
+    //Write data to src.txt
     if (isContRegion)
     {
         printf("Write to file.\n");
-        fprintf(s->fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file   
+        fprintf(s->src_fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file   
     }
-    // Check if beginning of content region
+    // Read passed data and determine data region by checking if beginning of content region
     if(!(strncmp(s->pipe->buff, CONT_REG, strlen(CONT_REG))))
     {
         isContRegion = 1;
         printf("ENDHEADER EQUAL!\n");
     }
-    //TODO: write data to src.txt
+    
 
     //TEST
-    
     printf("Read passed data: %s\n", s->pipe->buff);
     memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks?
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
