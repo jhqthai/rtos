@@ -58,6 +58,7 @@ typedef struct
 static void *thread_start_a(s_thread *t); // Tread A function
 static void *thread_start_b(s_thread *t); // Thread B function
 static void *thread_start_c(s_thread *t); // Thread C funtion
+void shmwrite(double *time);
 void initData(s_data *d);
 
 int main(int argc, char *argv[])
@@ -139,8 +140,10 @@ int main(int argc, char *argv[])
     
     clock_t time_end = clock();
     double time_spent = (double)(time_end - time_start)/ CLOCKS_PER_SEC;
-    printf("Runtime: %f\n", time_spent);
-    shmwrite(&time_spent);
+    printf("Runtime: %f second(s)\n", time_spent);
+    
+    shmwrite(&time_spent); // Write to share memory
+
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
@@ -228,9 +231,10 @@ static void *thread_start_c(s_thread *s)
 
 void shmwrite(double *time)
 {
+   
     int retval, shmid;
-    void *memory = NULL;
-    double *shared;
+    void *shared = NULL; // Share memory
+    double *p;
 
     /* Initialise share memory*/
     shmid = shmget((key_t)123456, 6, IPC_CREAT|0666);
@@ -241,21 +245,21 @@ void shmwrite(double *time)
     printf("Key generated: %d\n", shmid);
 
     /* Attach share memory ID to memory */
-    memory = shmat(shmid, NULL, 0);
-    if (memory == NULL)
+    shared = shmat(shmid, NULL, 0);
+    if (shared == NULL)
     {
         perror("Memory attachment failure\n");
         exit(EXIT_FAILURE);
     }
 
     /* Process of writing to memory*/
-    shared = (double *)memory; // Set memory to pointer
-    memset(shared, '\0', sizeof(time)); // Clearing 6 bits of data before transfering
-    memcpy(shared, time, sizeof(time)); // Writing to memory!
+    p = (double *)shared; // Set shared memory to pointer
+    memset(p, '\0', sizeof(time)); // Clearing 6 bits of data before transfering
+    memcpy(p, time, sizeof(time)); // Writing to memory!
     
 
     /* Detach from memory */
-    retval = shmdt(shared);
+    retval = shmdt(p);
     if (retval < 0){
         perror("Detachment failed");
         exit(EXIT_FAILURE);
