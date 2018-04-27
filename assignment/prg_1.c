@@ -1,8 +1,15 @@
-/******
- * Instruction:
+/*! @file
+ *  
+ *  @brief A multi-threads program for read and writing data using pipe-line concept
+ *  
+ *  Program runtime information is saved in shared memory.
+ *  The information can be viewed by running prg_2.
  * 
- * 
- * *****/
+ *  Compilation instruction: gcc -pthread -o prg_1 prg_1.c
+ *  
+ *  @author John Thai
+ *  @date 2018-04-27 
+ */ 
 
 #include <stdio.h>
 #include <pthread.h>
@@ -165,6 +172,11 @@ int main(int argc, char *argv[])
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
+/*! @brief Initialises threads and semaphores
+ *  
+ *  @param d - A pointer to s_thread structure
+ *  @return - void
+ */
 void initData(s_thread *d)
 {
     // Create mutex lock
@@ -184,6 +196,11 @@ void initData(s_thread *d)
         handle_error("pthread_attr_init error");
 }
 
+/*! @brief Writes one line of charater to pipe from selected data file
+ *  
+ *  @param s - A pointer to s_data structure
+ *  @return - void
+ */
 static void *thread_start_a(s_data *s)
 {
     char buff[BUFFER_SIZE]; // Local buffer to get data from data.txt file
@@ -208,6 +225,11 @@ static void *thread_start_a(s_data *s)
         handle_error("sem_post error");
 }
 
+/*! @brief Reads data from pipe and pass data to be read by thread C
+ *  
+ *  @param s - A pointer to s_data structure
+ *  @return - void
+ */
 static void *thread_start_b(s_data *s)
 {
     if (sem_wait(s->t->read)) // Wait till unlocked
@@ -224,6 +246,11 @@ static void *thread_start_b(s_data *s)
         handle_error("sem_post error");
 }
 
+/*! @brief Reads passed data and determine content data region then writes data from content region to file.
+ *  
+ *  @param s - A pointer to s_data structure
+ *  @return - void
+ */
 static void *thread_start_c(s_data *s)
 {
     if (sem_wait(s->t->justify)) // Wait till unlocked
@@ -251,6 +278,11 @@ static void *thread_start_c(s_data *s)
         handle_error("sem_post error");
 }
 
+/*! @brief Write data to memory to be read by another process
+ *  
+ *  @param s - A pointer to s_data structure
+ *  @return - void
+ */
 void shmwrite(double *time)
 {
     int retval, shmid;
@@ -263,7 +295,6 @@ void shmwrite(double *time)
         perror("Key creation failed");
         shmid = shmget((key_t)123456, 6, 0666);
     }
-    //printf("Key generated: %d\n", shmid);
 
     /* Attach share memory ID to memory */
     shared = shmat(shmid, NULL, 0);

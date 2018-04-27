@@ -3,6 +3,7 @@
         "types.h": "c",
         "stdlib.h": "c",
         "semaphore.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "shm.h": "c"
     }
 }
