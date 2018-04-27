@@ -156,9 +156,9 @@ int main(int argc, char *argv[])
     /* Runtime calculation */
     clock_t time_end = clock();
     double time_spent = (double)(time_end - time_start)/ CLOCKS_PER_SEC;
-    //printf("Runtime: %f second(s)\n", time_spent);
     
-    shmwrite(&time_spent); // Write to shared memory
+    // Write to shared memory
+    shmwrite(&time_spent); 
 
     printf("Program execution completed!\nRuntime: %f second(s)\n", time_spent);
 
@@ -167,7 +167,8 @@ int main(int argc, char *argv[])
 
 void initData(s_thread *d)
 {
-    if (pthread_mutex_init(d->mutex, NULL)) // Create mutex lock
+    // Create mutex lock
+    if (pthread_mutex_init(d->mutex, NULL)) 
         handle_error("pthread_mutex_init error");
 
     /* Create semaphores and block subroutine */
@@ -178,7 +179,8 @@ void initData(s_thread *d)
     if (sem_init(d->justify, 0, 0))
         handle_error("sem_init error");
 
-    if (pthread_attr_init(d->attr)) // Initialise default attributes
+    // Initialise default attributes
+    if (pthread_attr_init(d->attr)) 
         handle_error("pthread_attr_init error");
 }
 
@@ -191,18 +193,15 @@ static void *thread_start_a(s_data *s)
     if (pthread_mutex_lock(s->t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
-    if(fgets(buff, sizeof(buff), s->data_fp) == NULL) // Put character from data.txt into a temporary buffer
+    // Put character from data.txt into a temporary buffer
+    if(fgets(buff, sizeof(buff), s->data_fp) == NULL) 
     {
         *s->read_status = EOF; // End of file flag
     }
 
-    write(*s->fd_write, buff, strlen(buff)); // Write data from buffer to file descriptor
+    // Write data from buffer to file descriptor
+    write(*s->fd_write, buff, strlen(buff)); 
     
-    //TEST
-    printf("Thread A\n");
-    printf("from fgets: %s\n", buff);
-    // printf("Fd_write: %i\n", *s->fd_write);
-    // printf("Fd_read: %i\n", *s->fd_read);
     if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
     if (sem_post(s->t->read)) // Release and unlock semaphore B 
@@ -219,9 +218,6 @@ static void *thread_start_b(s_data *s)
     // Reads data from pipe and pass data to thread C
     s->pipe->isRead = read(*s->fd_read, s->pipe->buff, BUFFER_SIZE);
 
-    //TEST
-    printf("Thread B\n");
-    printf("Read out: %s\n", s->pipe->buff);
     if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
     if (sem_post(s->t->justify)) // Release and unlock semaphore C 
@@ -235,26 +231,20 @@ static void *thread_start_c(s_data *s)
     if (pthread_mutex_lock(s->t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
-    //test
-    printf("Thread C\n");
-    
     //Write data to src.txt
     if (*s->isContRegion)
     {
-        printf("Write to file.\n");
         fprintf(s->src_fp, "%.*s", s->pipe->isRead, s->pipe->buff); //print to file   
     }
     // Read passed data and determine data region by checking if beginning of content region
     if(!(strncmp(s->pipe->buff, CONT_REG, strlen(CONT_REG))))
     {
         *s->isContRegion = 1;
-        printf("ENDHEADER EQUAL!\n");
     }
     
-    //TEST
-    printf("Read passed data: %s\n", s->pipe->buff);
-    printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-    memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks
+    // Clear array to prevent memleaks
+    memset(s->pipe->buff, 0, BUFFER_SIZE); 
+    
     if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_lock error"); 
     if (sem_post(s->t->write)) // Release and unlock semaphore A 
@@ -263,7 +253,6 @@ static void *thread_start_c(s_data *s)
 
 void shmwrite(double *time)
 {
-   
     int retval, shmid;
     void *shared = NULL; // Share memory
     double *p;
@@ -279,21 +268,15 @@ void shmwrite(double *time)
     /* Attach share memory ID to memory */
     shared = shmat(shmid, NULL, 0);
     if (shared == NULL)
-    {
-        perror("Memory attachment failure\n");
-        exit(EXIT_FAILURE);
-    }
+        handle_error("Memory attachment failure\n");
 
     /* Process of writing to memory*/
     p = (double *)shared; // Set shared memory to pointer
     memset(p, '\0', sizeof(time)); // Clearing bits of data before transfering
     memcpy(p, time, sizeof(time)); // Writing to memory!
     
-
     /* Detach from memory */
     retval = shmdt(p);
-    if (retval < 0){
-        perror("Detachment failed");
-        exit(EXIT_FAILURE);
-    }
+    if (retval < 0)
+        handle_error("Detachment failed");
 }
