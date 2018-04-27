@@ -1,3 +1,11 @@
+/*************
+ * 
+ * Instruction:
+ * 
+ * 
+ * Acknowledgement: https://www.youtube.com/watch?v=PRmUybI61cA
+ * **********/
+
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/types.h>
@@ -18,7 +26,7 @@ int main()
         perror("Key creation failed");
         shmid = shmget((key_t)123456, 6, 0666);
     }
-    printf("Key generated: %d\n", shmid);
+    //printf("Key generated: %d\n", shmid);
 
     /* Attach share memory ID to memory */
     shared = shmat(shmid, NULL, 0);
