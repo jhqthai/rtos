@@ -23,22 +23,21 @@
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-
 /* Defining structs */
 typedef struct
 {
-    int isRead;
+    int isRead; // Variable to check pipe read status
     char buff[BUFFER_SIZE]; // Buffer to store reads
 } struct_pipe; // Pipe data struct
 
 typedef struct
 {
-    sem_t *write; // Semaphores
-    sem_t *read; 
-    sem_t *justify; 
+    sem_t *write; // Pointer to write semaphore
+    sem_t *read; // Pointer to write semaphore
+    sem_t *justify; // Pointer to write semaphore
     pthread_mutex_t *mutex; // Mutex lock
     pthread_attr_t *attr; // Set of thread attributes
-} s_data; // Thread control stuct
+} s_thread; // Thread control stuct
 
 typedef struct
 {
@@ -47,17 +46,18 @@ typedef struct
     FILE *data_fp; // File pointer to read from data.txt
     FILE *src_fp;  // File pointer to write to src.txt
     struct_pipe *pipe;
-    s_data *d;
+    s_thread *t;
     int *read_status; // Pointer to hold EOF status
     int *isContRegion; // Pointer to check data.txt file region
-}s_thread; // Thread data struct
+}s_data; // Thread data struct
 
 /* Functions declaration */
-void initData(s_data *d); // Data initialisation function
-static void *thread_start_a(s_thread *t); // Tread A function
-static void *thread_start_b(s_thread *t); // Thread B function
-static void *thread_start_c(s_thread *t); // Thread C funtion
+void initData(s_thread *t); // Data initialisation function
+static void *thread_start_a(s_data *d); // Tread A function
+static void *thread_start_b(s_data *d); // Thread B function
+static void *thread_start_c(s_data *d); // Thread C funtion
 void shmwrite(double *time); // Shared memory writing function
+
 
 int main(int argc, char *argv[])
 {
@@ -104,8 +104,8 @@ int main(int argc, char *argv[])
 
     /* Setting up structs */
     struct_pipe pipe = {0};
-    s_data d = {&write, &read, &justify, &mutex, &attr};
-    s_thread s = {&fd[0], &fd[1], data_fp, src_fp, &pipe, &d, &read_status, &isContRegion};
+    s_thread d = {&write, &read, &justify, &mutex, &attr};
+    s_data s = {&fd[0], &fd[1], data_fp, src_fp, &pipe, &d, &read_status, &isContRegion};
     
     // Initialise threads and semaphores
     initData(&d); 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     close(fd[0]);
     close(fd[1]);
 
-    // Close read and write file somewhere
+    // Close read and write file
     fclose(data_fp);
     fclose(src_fp);
 
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
-void initData(s_data *d)
+void initData(s_thread *d)
 {
     if (pthread_mutex_init(d->mutex, NULL)) // Create mutex lock
         handle_error("pthread_mutex_init error");
@@ -182,13 +182,13 @@ void initData(s_data *d)
         handle_error("pthread_attr_init error");
 }
 
-static void *thread_start_a(s_thread *s)
+static void *thread_start_a(s_data *s)
 {
     char buff[BUFFER_SIZE]; // Local buffer to get data from data.txt file
 
-    if (sem_wait(s->d->write)) // Wait till unlocked
+    if (sem_wait(s->t->write)) // Wait till unlocked
         handle_error("sem_wait error");
-    if (pthread_mutex_lock(s->d->mutex)) // Lock mutex to prevent concurrent threads execution
+    if (pthread_mutex_lock(s->t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
     if(fgets(buff, sizeof(buff), s->data_fp) == NULL) // Put character from data.txt into a temporary buffer
@@ -203,17 +203,17 @@ static void *thread_start_a(s_thread *s)
     printf("from fgets: %s\n", buff);
     // printf("Fd_write: %i\n", *s->fd_write);
     // printf("Fd_read: %i\n", *s->fd_read);
-    if (pthread_mutex_unlock(s->d->mutex)) // Release mutex lock
+    if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    if (sem_post(s->d->read)) // Release and unlock semaphore B 
+    if (sem_post(s->t->read)) // Release and unlock semaphore B 
         handle_error("sem_post error");
 }
 
-static void *thread_start_b(s_thread *s)
+static void *thread_start_b(s_data *s)
 {
-    if (sem_wait(s->d->read)) // Wait till unlocked
+    if (sem_wait(s->t->read)) // Wait till unlocked
         handle_error("sem_wait error");
-    if (pthread_mutex_lock(s->d->mutex)) // Lock mutex to prevent concurrent threads execution
+    if (pthread_mutex_lock(s->t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
     // Reads data from pipe and pass data to thread C
@@ -222,17 +222,17 @@ static void *thread_start_b(s_thread *s)
     //TEST
     printf("Thread B\n");
     printf("Read out: %s\n", s->pipe->buff);
-    if (pthread_mutex_unlock(s->d->mutex)) // Release mutex lock
+    if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    if (sem_post(s->d->justify)) // Release and unlock semaphore C 
+    if (sem_post(s->t->justify)) // Release and unlock semaphore C 
         handle_error("sem_post error");
 }
 
-static void *thread_start_c(s_thread *s)
+static void *thread_start_c(s_data *s)
 {
-    if (sem_wait(s->d->justify)) // Wait till unlocked
+    if (sem_wait(s->t->justify)) // Wait till unlocked
         handle_error("sem_wait error");
-    if (pthread_mutex_lock(s->d->mutex)) // Lock mutex to prevent concurrent threads execution
+    if (pthread_mutex_lock(s->t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
     //test
@@ -255,9 +255,9 @@ static void *thread_start_c(s_thread *s)
     printf("Read passed data: %s\n", s->pipe->buff);
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     memset(s->pipe->buff, 0, BUFFER_SIZE); // Clear array to prevent memleaks
-    if (pthread_mutex_unlock(s->d->mutex)) // Release mutex lock
+    if (pthread_mutex_unlock(s->t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_lock error"); 
-    if (sem_post(s->d->write)) // Release and unlock semaphore A 
+    if (sem_post(s->t->write)) // Release and unlock semaphore A 
         handle_error("sem_post error");
 }
 
