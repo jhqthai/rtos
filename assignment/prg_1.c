@@ -11,6 +11,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 /* Constant definition */
 #define DATA_FILE "data.txt"
@@ -28,9 +30,9 @@
 /* Defining structs */
 typedef struct
 {
-    sem_t *write; 
+    sem_t *write; // Semaphores
     sem_t *read; 
-    sem_t *justify; // Semaphores
+    sem_t *justify; 
     pthread_mutex_t *mutex; // Mutex lock
     pthread_attr_t *attr; // Set of thread attributes
 } s_data; // Thread control stuct
@@ -63,15 +65,15 @@ int main(int argc, char *argv[])
     clock_t time_start = clock(); // Starting timer
 
     // Variables declare and define
-    int read_status = 0;
-    int isContRegion = 0;
+    int read_status = 0; // End file status
+    int isContRegion = 0; // Reading region status
     int fd[2]; // Pipe file descriptor
     pthread_t tidA, tidB, tidC; // Thread ID
     pthread_attr_t attr; // Set of thread attributes
     pthread_mutex_t mutex; // Mutex lock
-    sem_t write; 
-    sem_t read; 
-    sem_t justify; // Semaphores
+    sem_t write; // Semaphore for writing
+    sem_t read;  // Semaphroe for reading
+    sem_t justify; // Semaphore for justifying
 
     // Piping
     if (pipe(fd)<0)
@@ -138,6 +140,7 @@ int main(int argc, char *argv[])
     clock_t time_end = clock();
     double time_spent = (double)(time_end - time_start)/ CLOCKS_PER_SEC;
     printf("Runtime: %f\n", time_spent);
+    shmwrite(&time_spent);
     exit(EXIT_SUCCESS); // Program excuted all good!
 }
 
@@ -221,4 +224,41 @@ static void *thread_start_c(s_thread *s)
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
     pthread_mutex_unlock(s->d->mutex); // Release mutex lock
     sem_post(s->d->write); // Release and unlock semaphore A 
+}
+
+void shmwrite(double *time)
+{
+    int retval, shmid;
+    void *memory = NULL;
+    double *shared;
+
+    /* Initialise share memory*/
+    shmid = shmget((key_t)123456, 6, IPC_CREAT|0666);
+    if (shmid < 0){
+        perror("Key creation failed");
+        shmid = shmget((key_t)123456, 6, 0666);
+    }
+    printf("Key generated: %d\n", shmid);
+
+    /* Attach share memory ID to memory */
+    memory = shmat(shmid, NULL, 0);
+    if (memory == NULL)
+    {
+        perror("Memory attachment failure\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Process of writing to memory*/
+    shared = (double *)memory; // Set memory to pointer
+    memset(shared, '\0', sizeof(time)); // Clearing 6 bits of data before transfering
+    memcpy(shared, time, sizeof(time)); // Writing to memory!
+    
+
+    /* Detach from memory */
+    retval = shmdt(shared);
+    if (retval < 0){
+        perror("Detachment failed");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
 }
