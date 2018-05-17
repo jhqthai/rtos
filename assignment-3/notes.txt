@@ -1,0 +1,31 @@
+Notes:
+Write 2 separte programs.
+Program 1 - CPU scheduling and FIFOs
+Program 2 - Deadlock detection and Signal
+
+prg_1
+
+2 threads in prg_1
+Thread 1 
+- Do Shortest-remaining -time-first
+- Determine average waiting time and turn-around time
+- Write awt and tat to CPU memory using FIFOs
+
+Thread 2
+- Read from memory
+- Output to textfile "output.txt"
+
+
+prg_2
+Detect deadlock -> report it
+
+Read information from "Topic2_Prg_2.txt" file
+Do deadlock detection algorithm LOL
+Print process ID of deadlocks
+Write result to "output_topic2.txt" (notify user when writing complete)
+
+Extra: Get program to generate Gantt-chart on console loool
+
+
+
+
