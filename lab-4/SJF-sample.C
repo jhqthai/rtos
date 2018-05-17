@@ -2,6 +2,7 @@
 //--------------This is the program code of L5--------------////
 //-----------It uses to do Shortest job first scheduling----////
 ////********************************************************////
+// Compile instruction: gcc -o sjf SJF-sample.C -lstdc++
 
 #include<stdio.h>
 #include<stdbool.h>
@@ -27,15 +28,15 @@ void sort(process p[], int start, int num)
            if(p[i].burst_t > p[j].burst_t)//if the front is larger than the back, swap	
            {
 			     //add your program here.
-			     // temp = a
-			     // a = b
-			     // b = temp
+							temp.burst_t = p[i].burst_t; //temp = a
+							p[i].burst_t = p[j].burst_t; //a = b
+							p[j].burst_t = temp.burst_t; //b = temp
 		       }
         }
    }
 }//sort end
 
-void main()
+int main(int argc, char *argv[])
 {
      int i,k, j;//index
      int processNum=0;//process number
@@ -46,7 +47,7 @@ void main()
      //this is a example
      printf("This is a program to run example data to show shortest job first scheduling.\n\n");
      processNum=6;
-     pro= malloc(sizeof(process)*processNum);//allocate memory for valaible p
+     pro= (process *)malloc(sizeof(process)*processNum);//allocate memory for valaible p
      pro[0].pid=1;pro[0].arrive_t=0;pro[0].burst_t=8;//ppt example data
      pro[1].pid=2;pro[1].arrive_t=1;pro[1].burst_t=4;//ppt example data
      pro[2].pid=3;pro[2].arrive_t=2;pro[2].burst_t=9;//ppt example data
@@ -57,7 +58,7 @@ void main()
      //////---------------Shortest job first algorithm:based on burst time--------/////	  
      //sort the existing processes
      //add your program here
-
+			sort(pro, 0, processNum);
 	 
      //process
      for (i = 0; i<processNum; i++)
@@ -83,4 +84,6 @@ void main()
           printf("\t%d\t\t%f\t%f\t%f\t%f\n", pro[i].pid,pro[i].arrive_t, pro[i].burst_t, pro[i].wait_t, pro[i].turnaround_t);
      printf("\nAverage wait time: %f", avg_wait_t);
      printf("\nAverage turnaround time: %f\n", avg_turnaround_t);
+     
+     return 0;
 }//main
