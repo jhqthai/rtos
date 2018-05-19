@@ -1,16 +1,5 @@
-/*! @file
- *  
- *  @brief A multi-threads program for read and writing data using pipe-line concept
- *  Program 1 - CPU scheduling and FIFOs 
- * 
- *  Program runtime information is saved in shared memory.
- *  The information can be viewed by running prg_2.
- * 
- *  Compilation instruction: gcc -pthread -o prg_1 prg_1.c
- *  
- *  @author John Thai
- *  @date 2018-04-27 
- */ 
+// Prgram 1 - CPU scheduling and FIFOs
+
 
 #include <stdio.h>
 #include <pthread.h>
