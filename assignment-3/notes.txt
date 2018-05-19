@@ -29,3 +29,26 @@ Extra: Get program to generate Gantt-chart on console loool
 
 
 
+------------------------
+prg_1
+step 1 
+- Create threads
+- Test threads
+
+step 2
+- do srtf
+
+
+
+
+---
+Learned
+-> is a shorthand for (*x).field, where x is a pointer to a variable of type struct account, and field is a field in the struct, such as account_number.
+
+If you have a pointer to a struct, then saying
+
+accountp->account_number;
+
+is much more concise than
+
+(*accountp).account_number;

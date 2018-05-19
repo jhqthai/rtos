@@ -10,13 +10,10 @@
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 // Thread control struct
-typedef struct
-{
-    sem_t *one; // Semaphore one control
-    sem_t *two; // Semaphore two control
-    pthread_mutex_t *mutex; // Mutex lock
-    pthread_attr_t *attr; // Set of thread attributes
-} s_thread;
+sem_t one; // Semaphore one control
+sem_t two; // Semaphore two control
+pthread_mutex_t mutex; // Mutex lock
+pthread_attr_t attr; // Set of thread attributes
 
 void thread_init();
 static void *thread_one(void *args);
@@ -24,14 +21,14 @@ static void *thread_two(void *args);
 
 int main (int argc, char *argv[])
 {
-    // Variable declare and define
-    sem_t one, two; //Semaphore controls
-    pthread_mutex_t mutex; // Mutex lock
-    pthread_attr_t attr; // Set of thread attributes
+    // // Variable declare and define
+    // sem_t one, two; //Semaphore controls
+    // pthread_mutex_t mutex; // Mutex lock
+    // pthread_attr_t attr; // Set of thread attributes
     pthread_t tid1, tid2; // Thread IDs
 
     /* Struct setup */
-    s_thread t = {&one, &two, &mutex, &attr};
+    //s_thread t = {&one, &two, &mutex, &attr};
     //s_thread t;
 
     // Initialise threads and semaphores
@@ -74,19 +71,17 @@ int main (int argc, char *argv[])
 
 void thread_init()
 {
-    s_thread *t; // Re-declare thread for private use
-
-    if (pthread_mutex_init(t->mutex, NULL)) 
+    if (pthread_mutex_init(&mutex, NULL)) 
         handle_error("pthread_mutex_init error");
 
     /* Create semaphores and block subroutine */
-    if (sem_init(t->one, 0, 0))
+    if (sem_init(&one, 0, 0))
         handle_error("sem_init error");
-    if (sem_init(t->two, 0, 0))
+    if (sem_init(&two, 0, 0))
         handle_error("sem_init error");
 
     // Initialise default attributes
-    if (pthread_attr_init(t->attr)) 
+    if (pthread_attr_init(&attr)) 
         handle_error("pthread_attr_init error");
 
 }
@@ -95,19 +90,19 @@ void thread_init()
 // Do sjf stuff 
 static void *thread_one(void *args)
 {
-    s_thread *t; // Re-declare thread for private use
+    // s_thread *t; // Re-declare thread for private use
 
-    if (sem_wait(t->one)) // Wait till unlocked
+    if (sem_wait(&one)) // Wait till unlocked
         handle_error("sem_wait error");
-    if (pthread_mutex_lock(t->mutex)) // Lock mutex to prevent concurrent threads execution
+    if (pthread_mutex_lock(&mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
     printf("In thread one");
 
-    if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
+    if (pthread_mutex_unlock(&mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    if (sem_post(t->two)) // Release and unlock semaphore two
+    if (sem_post(&two)) // Release and unlock semaphore two
         handle_error("sem_post error");
 }
 
@@ -116,18 +111,18 @@ static void *thread_one(void *args)
 // do mem stuff
 static void *thread_two(void *args)
 {
-    s_thread *t; // Re-declare thread for private use
+    // s_thread *t; // Re-declare thread for private use
 
-    if (sem_wait(t->two)) // Wait till unlocked
+    if (sem_wait(&two)) // Wait till unlocked
         handle_error("sem_wait error");
-    if (pthread_mutex_lock(t->mutex)) // Lock mutex to prevent concurrent threads execution
+    if (pthread_mutex_lock(&mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
     printf("In thread two");
 
-    if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
+    if (pthread_mutex_unlock(&mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    if (sem_post(t->one)) // Release and unlock semaphore one
+    if (sem_post(&one)) // Release and unlock semaphore one
         handle_error("sem_post error");
 }
