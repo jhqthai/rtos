@@ -22,6 +22,15 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+
+
+
+#define FIFONAME "/tmp/myfifo"
+#define MAX_BUF 1024
 
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -41,6 +50,9 @@ typedef struct{
     int bt; // Burst time
 }s_process;
 
+float avg_wt;
+float avg_tat;
+
 // pthread_mutex_t mutex; // Mutex lock
 // pthread_attr_t attr; // Set of thread attributes
 /* Functions declaration */
@@ -52,6 +64,9 @@ static void *thread_two(s_thread *t);
 void wait_time(s_process proc[], int n, int wt[]);
 void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
 void average_time(s_process proc[], int n);
+// FIFO
+void fifo_write(); // Function to write to named pipe
+void fifo_read(); // Function to read from named pipe
 
 int main (int argc, char *argv[])
 {
@@ -70,6 +85,8 @@ int main (int argc, char *argv[])
     // Initialise threads and semaphores
     thread_init(&t);
 
+    /* create the FIFO (named pipe) */
+    mkfifo(FIFONAME, 0666);
 
     //if (pthread_attr_init(&attr)) // Initialise thread creation attributes
     //    handle_error("pthread_attr_init");
@@ -92,6 +109,8 @@ int main (int argc, char *argv[])
         handle_error("pthread_join error");
 
 
+    /* remove the FIFO */
+    unlink(FIFONAME);
 
     // Free memory allocated to thread
     if (pthread_attr_destroy(&attr))
@@ -153,6 +172,9 @@ static void *thread_one(s_thread *t)
     // Call average time
     average_time(proc, n);
 
+    // Fifo stuff
+    fifo_write(); // Pass what to write in here
+
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
     if (sem_post(t->two)) // Release and unlock semaphore two
@@ -173,6 +195,9 @@ static void *thread_two(s_thread *t)
 
     // Do stuff here
     printf("In thread two\n");
+
+    // fifo read
+    fifo_read();
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
@@ -265,6 +290,29 @@ void average_time(s_process proc[], int n)
         // Display individual component
         printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
     }
-    printf("\nAverage wait time: %f", (float)total_wt/(float)n);
-    printf("\nAverage turnaround time: %f\n", (float)total_tat/(float)n);
+
+    avg_wt = (float)total_wt/(float)n;
+    avg_tat = (float)total_tat/(float)n;
+    printf("\nAverage wait time: %f", avg_wt);
+    printf("\nAverage turnaround time: %f\n", avg_tat);
+}
+
+void fifo_write(){
+    int fd;
+
+    /* write "Hi" to the FIFO */
+    fd = open(FIFONAME, O_WRONLY);
+    write(fd, "Hi", sizeof("Hi"));
+    close(fd);
+}
+
+void fifo_read(){
+    int fd;
+    char buf[MAX_BUF];
+
+    /* open, read, and display the message from the FIFO */
+    fd = open(FIFONAME, O_RDONLY);
+    read(fd, buf, MAX_BUF);
+    printf("Received: %s\n", buf);
+    close(fd);
 }

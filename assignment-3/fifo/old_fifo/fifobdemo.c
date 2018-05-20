@@ -21,18 +21,37 @@ int main(void)
     char message[] = "Hi - this is a message!\n";
     int fifofd;  /* FIFO file descriptor */
 
+    // Check if file has not been removed
+    if(access(FIFONAME, F_OK) != -1){
+        printf("File has not been removed.\n");
+        if(remove(FIFONAME) < 0) // Remove existing file before writing
+            perror("remove");
+    }
+
+    /* Try and create the FIFO */
+    if(mkfifo(FIFONAME, S_IRWXU) < 0)
+    {
+        perror("mkfifo");
+        exit(1);
+    }
+
+    printf("FIFO creation successful\n");
+
     /* OK - open FIFO and ... */
     if((fifofd = open(FIFONAME, O_WRONLY)) < 0)
     {
         perror("open");
-	exit(1);
+	    exit(1);
     }
-    
+    printf("Open success\n");
+
     /* ... write something into it. */
     write(fifofd, message, strlen(message));
+    printf("Write sucess!\n");
 
     /* close the FIFO */
     close(fifofd);
+
 
     exit(0);
 }

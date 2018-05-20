@@ -5,6 +5,9 @@
         "pthread.h": "c",
         "stdio.h": "c",
         "semaphore.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "unistd.h": "c",
+        "stat.h": "c",
+        "fcntl.h": "c"
     }
 }

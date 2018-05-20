@@ -22,20 +22,11 @@ int main(void)
     int n;       /* Number of chars read */
     char datafromFIFO[MESSLENGTH];
 
-    /* Try and create the FIFO */
-    if(mkfifo(FIFONAME, S_IRUSR | S_IWUSR) < 0)
-    {
-        perror("mkfifo");
-        exit(1);
-    }
-
-    printf("FIFO creation successful - now waiting for a writer ...\n");
-
     /* OK - open FIFO and read what comes through */
     if((fifofd = open(FIFONAME, O_RDONLY)) < 0)
     {
         perror("open");
-	exit(2);
+	    exit(2);
     }
     
     n = read(fifofd, datafromFIFO, MESSLENGTH);
@@ -50,10 +41,10 @@ int main(void)
 
     /* Close the FIFO and destroy it */
     close(fifofd);
-    if(unlink(FIFONAME) < 0)
+    if(remove(FIFONAME) < 0)
     {
-	perror("unlink");
-	exit(3);
+        perror("unlink");
+        exit(3);
     }
 
     exit(0);
