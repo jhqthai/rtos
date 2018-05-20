@@ -5,26 +5,26 @@
 // SRTF process struct
 typedef struct{
     int pid; // Process ID
-    int bt; // Burst time
     int art; // Arrival time
+    int bt; // Burst time
 }s_process;
 
-void waiting_time(s_process proc[], int n, int wt[]);
+void wait_time(s_process proc[], int n, int wt[]);
 void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
 void average_time(s_process proc[], int n);
 
 int main(int argc, char *argv[]){
-    s_process proc[] = { { 1, 6, 1 }, { 2, 8, 1 },
-                    { 3, 7, 2 }, { 4, 3, 3 } };
+    s_process proc[] = { { 1, 1, 6 }, { 2, 1, 8 },
+                    { 3, 2, 7 }, { 4, 3, 3 } };
     int n = sizeof(proc) / sizeof(proc[0]);
  
-    findavgTime(proc, n);
-    
+    average_time(proc, n);
+
     return 0;
 }
 
 /* Function to find all processes wait time */
-void waiting_time(s_process proc[], int n, int wt[])
+void wait_time(s_process proc[], int n, int wt[])
 {
     int rt[n]; //Remaining time
 
@@ -98,7 +98,7 @@ void average_time(s_process proc[], int n)
     turnaround_time(proc, n, wt, tat);
 
     // Display result headings
-    printf("\tProcess ID\tBurst Time\tWait Time\tTurnaround Time\n");
+    printf("\tProcess ID\tArrival Time\tBurst Time\tWait Time\tTurnaround Time\n");
 
     // Calculate total wait time and turnaround time
     for(int i = 0; i < n; i++) {
@@ -106,7 +106,7 @@ void average_time(s_process proc[], int n)
         total_tat = total_tat + tat[i];
 
         // Display individual component
-        printf("\t%d\t\t%f\t%f\t%f\n", proc[i].pid, proc[i].bt, wt[i], tat[i]);
+        printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
     }
     printf("\nAverage wait time: %f", (float)total_wt/(float)n);
     printf("\nAverage turnaround time: %f\n", (float)total_tat/(float)n);
