@@ -1,89 +1,113 @@
-////********************************************************////
-//--------------This is the program code of L5--------------////
-//-----------It uses to do Shortest job first scheduling----////
-////********************************************************////
-// Compile instruction: gcc -o srtf srtf_test.c -lstdc++
+#include <stdio.h>
+#include <limits.h>
+#include <stdbool.h>
 
-#include<stdio.h>
-#include<stdbool.h>
-#include <stdlib.h>
+// SRTF process struct
+typedef struct{
+    int pid; // Process ID
+    int bt; // Burst time
+    int art; // Arrival time
+}s_process;
 
-//a struct storing the information of each process
-typedef struct
-{
-    int pid;//process id
-    float arrive_t, wait_t, burst_t, turnaround_t, start_t;//process time
-}process;
+void waiting_time(s_process proc[], int n, int wt[]);
+void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
+void average_time(s_process proc[], int n);
 
-//sort. prepare to do Short job first schedule
-void sort(process p[], int start, int num)
-{
-    int i,j;
-    process temp;
-    for (i = start; i<num; i++)
-    {
-        for (j = i+1; j<num; j++)
-        {
-            //swap the less burst time to the front
-            if(p[i].burst_t > p[j].burst_t)//if the front is larger than the back, swap	
-            {
-                //add your program here.
-                temp.burst_t = p[i].burst_t; //temp = a
-                p[i].burst_t = p[j].burst_t; //a = b
-                p[j].burst_t = temp.burst_t; //b = temp
-            }
-        }
-    }
-}//sort end
-
-int main(int argc, char *argv[])
-{
-    int i,k, j;//index
-    int processNum=0;//process number
-    float avg_wait_t = 0.0, avg_turnaround_t = 0.0, start_t = 0.0;//average waiting time, turnaround time and global start time
-    process *pro;//store process information using our struct(include id, four types of time)
-
-    ////--------------------initialize the data: process id and time---------------//////
-    //this is a example
-    printf("This is a program to run example data to show shortest job first scheduling.\n\n");
-    processNum=6;
-    pro= (process *)malloc(sizeof(process)*processNum);//allocate memory for valaible p
-    pro[0].pid=1;pro[0].arrive_t=0;pro[0].burst_t=8;//ppt example data
-    pro[1].pid=2;pro[1].arrive_t=1;pro[1].burst_t=4;//ppt example data
-    pro[2].pid=3;pro[2].arrive_t=2;pro[2].burst_t=9;//ppt example data
-    pro[3].pid=4;pro[3].arrive_t=3;pro[3].burst_t=5;//ppt example data
-    // pro[4].pid=5;pro[4].arrive_t=5;pro[4].burst_t=15;//adittional item
-    // pro[5].pid=6;pro[5].arrive_t=7;pro[5].burst_t=7;//adittional item
-
-    //////---------------Shortest job first algorithm:based on burst time--------/////	  
-    //sort the existing processes
-    //add your program here
-    sort(pro, start_t, processNum);
-    
-    //process
-    for (i = 0; i<processNum; i++)
-    {
-        if(pro[i].arrive_t<=start_t)
-            pro[i].start_t = start_t;//last ending time
-        else
-            pro[i].start_t = pro[i].arrive_t;//firstly
-
-        start_t += pro[i].burst_t;//set the global start time to the end of the process done time.
-        pro[i].wait_t = pro[i].start_t - pro[i].arrive_t;//set the wait time as CPU start time minus process arrive time
-        pro[i].turnaround_t = pro[i].burst_t + pro[i].wait_t;//set turn around time as bust time plus wait time
-        avg_wait_t += pro[i].wait_t;
-        avg_turnaround_t += pro[i].turnaround_t;
-    }
-
-    ////--------------------------Display the results------------------///////
-    avg_wait_t /= processNum;
-    avg_turnaround_t /= processNum;
-    printf("Process Schedule Table: \n");
-    printf("\tProcess ID\tArrival Time\tBurst Time\tWait Time\tTurnaround Time\n");
-    for (i = 0; i<processNum; i++)
-        printf("\t%d\t\t%f\t%f\t%f\t%f\n", pro[i].pid,pro[i].arrive_t, pro[i].burst_t, pro[i].wait_t, pro[i].turnaround_t);
-    printf("\nAverage wait time: %f", avg_wait_t);
-    printf("\nAverage turnaround time: %f\n", avg_turnaround_t);
+int main(int argc, char *argv[]){
+    s_process proc[] = { { 1, 6, 1 }, { 2, 8, 1 },
+                    { 3, 7, 2 }, { 4, 3, 3 } };
+    int n = sizeof(proc) / sizeof(proc[0]);
+ 
+    findavgTime(proc, n);
     
     return 0;
-}//main
+}
+
+/* Function to find all processes wait time */
+void waiting_time(s_process proc[], int n, int wt[])
+{
+    int rt[n]; //Remaining time
+
+    // Copy burst time into rt[]
+    for(int i = 0; i < n; i++)
+        rt[i] = proc[i].bt;
+
+    int complete = 0, t = 0, min = INT_MAX; // Set min to max for later comparision
+    int shortest = 0, finish_time;
+    bool check = false;
+
+    // Run till all process completed
+    while(complete != n) {
+        // Find process with minimum remaining time from all arrived processes till current time
+        for(int j = 0; j < n; j++) {
+            if((proc[j].art <= t) && (rt[j] < min) && rt[j] > 0)
+            {
+                min = rt[j];
+                shortest = j;
+                check = true;
+            }
+        }
+
+        if (check == false){
+            t++;
+            continue;
+        }
+
+        rt[shortest]--; // Reduce remaining time
+
+        // Update minimum
+        min = rt[shortest];
+        if (min == 0)
+            min = INT_MAX;
+
+        // If a process gets completely executed
+        if (rt[shortest] == 0)
+        {
+            complete++; // Increment complete
+
+            // Set finish time for current process
+            finish_time = t+1;
+
+            // Calculate waiting time
+            wt[shortest] = finish_time - proc[shortest].bt - proc[shortest].art;
+            
+            if (wt[shortest] < 0)
+                wt[shortest] = 0;
+        }
+        t++; // Increment time
+    }
+}
+   
+/* Function to calculate turnaround time */
+void turnaround_time(s_process proc[], int n, int wt[], int tat[])
+{
+    // Calculate turnaround time
+    for (int i = 0; i < n; i++)
+        tat[i] = proc[i].bt + wt[i];
+}
+
+// Calculate average time for wait time and turnaround time
+void average_time(s_process proc[], int n)
+{
+    int wt[n], tat[n], total_wt = 0, total_tat = 0;
+
+    // Call wait_time function
+    wait_time(proc, n, wt);
+
+    // Call turnaround_time function
+    turnaround_time(proc, n, wt, tat);
+
+    // Display result headings
+    printf("\tProcess ID\tBurst Time\tWait Time\tTurnaround Time\n");
+
+    // Calculate total wait time and turnaround time
+    for(int i = 0; i < n; i++) {
+        total_wt = total_wt + wt[i];
+        total_tat = total_tat + tat[i];
+
+        // Display individual component
+        printf("\t%d\t\t%f\t%f\t%f\n", proc[i].pid, proc[i].bt, wt[i], tat[i]);
+    }
+    printf("\nAverage wait time: %f", (float)total_wt/(float)n);
+    printf("\nAverage turnaround time: %f\n", (float)total_tat/(float)n);
+}
