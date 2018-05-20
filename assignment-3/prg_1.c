@@ -50,8 +50,6 @@ typedef struct{
     int bt; // Burst time
 }s_process;
 
-float avg_wt;
-float avg_tat;
 
 // pthread_mutex_t mutex; // Mutex lock
 // pthread_attr_t attr; // Set of thread attributes
@@ -85,8 +83,7 @@ int main (int argc, char *argv[])
     // Initialise threads and semaphores
     thread_init(&t);
 
-    /* create the FIFO (named pipe) */
-    mkfifo(FIFONAME, 0666);
+
 
     //if (pthread_attr_init(&attr)) // Initialise thread creation attributes
     //    handle_error("pthread_attr_init");
@@ -109,8 +106,7 @@ int main (int argc, char *argv[])
         handle_error("pthread_join error");
 
 
-    /* remove the FIFO */
-    unlink(FIFONAME);
+
 
     // Free memory allocated to thread
     if (pthread_attr_destroy(&attr))
@@ -172,13 +168,37 @@ static void *thread_one(s_thread *t)
     // Call average time
     average_time(proc, n);
 
-    // Fifo stuff
-    fifo_write(); // Pass what to write in here
+    /* Fifo stuff --------------------*/
+    int fd;
 
+    // Create the FIFO (named pipe)
+    mkfifo(FIFONAME, 0666);
+
+    /* Unlock mutex and sempost two since fifo require both thread to run simultanously */
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
+    printf("unlocked mutex in thread 1!\n");
+
     if (sem_post(t->two)) // Release and unlock semaphore two
         handle_error("sem_post error");
+    printf("semposted 2!\n");
+
+    // write "Hi" to the FIFO */
+    fd = open(FIFONAME, O_WRONLY);
+    write(fd, "Hi", sizeof("Hi"));
+    
+    close(fd);
+          
+    /* remove the FIFO */
+    unlink(FIFONAME);
+
+
+    /* --------------------*/
+
+    // if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
+    //     handle_error("pthread_mutex_unlock error"); 
+    // if (sem_post(t->two)) // Release and unlock semaphore two
+    //     handle_error("sem_post error");
 }
 
 
@@ -197,7 +217,15 @@ static void *thread_two(s_thread *t)
     printf("In thread two\n");
 
     // fifo read
-    fifo_read();
+    int fd;
+    char buf[MAX_BUF];
+
+    // Open, read, and display the message from the FIFO
+    fd = open(FIFONAME, O_RDONLY);
+    read(fd, buf, MAX_BUF);
+    printf("Received: %s\n", buf);
+    close(fd);
+
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
@@ -290,6 +318,8 @@ void average_time(s_process proc[], int n)
         // Display individual component
         printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
     }
+    float avg_wt;
+    float avg_tat;
 
     avg_wt = (float)total_wt/(float)n;
     avg_tat = (float)total_tat/(float)n;
@@ -298,21 +328,28 @@ void average_time(s_process proc[], int n)
 }
 
 void fifo_write(){
-    int fd;
+    // int fd;
 
-    /* write "Hi" to the FIFO */
-    fd = open(FIFONAME, O_WRONLY);
-    write(fd, "Hi", sizeof("Hi"));
-    close(fd);
+    // /* create the FIFO (named pipe) */
+    // mkfifo(FIFONAME, 0666);
+
+    // /* write "Hi" to the FIFO */
+    // fd = open(FIFONAME, O_WRONLY);
+    // write(fd, "Hi", sizeof("Hi"));
+    // close(fd);
+
+    // /* remove the FIFO */
+    // unlink(FIFONAME);
 }
 
 void fifo_read(){
-    int fd;
-    char buf[MAX_BUF];
+    // int fd;
+    // char buf[MAX_BUF];
 
-    /* open, read, and display the message from the FIFO */
-    fd = open(FIFONAME, O_RDONLY);
-    read(fd, buf, MAX_BUF);
-    printf("Received: %s\n", buf);
-    close(fd);
+    // /* open, read, and display the message from the FIFO */
+    // fd = open(FIFONAME, O_RDONLY);
+    // read(fd, buf, MAX_BUF);
+    // printf("Received: %s\n", buf);
+    // close(fd);
+
 }
