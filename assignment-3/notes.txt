@@ -68,6 +68,26 @@ P2 current burst = (p2 total burst -P2 arrival) = 4-1 = 3
 P3 = 9
 P2 > P3
 
+-------------------------
+prg_2
+Do the calc in paper first
+
+Set up array and try out algorithm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -88,3 +108,6 @@ Changed the way of implementating threads.
 -> possible solution - needa pass to init
 -> got segmentation fault
 -- had to pass everything through in main..
+
+------------
+FIFOs have an inherent property that both the ends should be opened together. open() call blocks for read() till open() for write() gets called by another process. 
