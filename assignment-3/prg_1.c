@@ -28,11 +28,10 @@
 #include <string.h>
 
 
-
-
 #define FIFONAME "/tmp/myfifo"
 #define MAX_BUF 1024
 #define OUT_FILE "output.txt"
+#define MSG_BUF 100
 
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -52,11 +51,6 @@ typedef struct{
     int bt; // Burst time
 }s_process;
 
-// float avg_wt;
-// float avg_tat;
-
-// pthread_mutex_t mutex; // Mutex lock
-// pthread_attr_t attr; // Set of thread attributes
 /* Functions declaration */
 // Thread functions
 void thread_init(s_thread *t);
@@ -66,9 +60,7 @@ static void *thread_two(s_thread *t);
 void wait_time(s_process proc[], int n, int wt[]);
 void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
 char *average_time(s_process proc[], int n);
-// FIFO
-void fifo_write(); // Function to write to named pipe
-void fifo_read(); // Function to read from named pipe
+
 
 int main (int argc, char *argv[])
 {
@@ -79,19 +71,10 @@ int main (int argc, char *argv[])
     pthread_t tid1, tid2; // Thread IDs
 
     /* Struct setup */
-    //s_thread t = {&one, &two, &mutex, &attr};
-    //s_thread t;
-
     s_thread t = {&one, &two, &mutex, &attr};
     
     // Initialise threads and semaphores
     thread_init(&t);
-
-
-
-    //if (pthread_attr_init(&attr)) // Initialise thread creation attributes
-    //    handle_error("pthread_attr_init");
-
 
     /* Create threads */
     if (pthread_create(&tid1, &attr, (void *)thread_one, &t)) // Create thread one
@@ -108,9 +91,6 @@ int main (int argc, char *argv[])
         handle_error("pthread_join error");
     if (pthread_join(tid2, NULL))
         handle_error("pthread_join error");
-
-
-
 
     // Free memory allocated to thread
     if (pthread_attr_destroy(&attr))
@@ -144,11 +124,11 @@ void thread_init(s_thread *t)
 }
 
 // thread 1
-// Do sjf stuff 
+// Do sjf stuff, write to FIFO
 static void *thread_one(s_thread *t)
 {
-    // s_thread *t; // Re-declare thread for private use
-    char *avg_time_msg = malloc(100);
+    int fd; // FIFO write file descriptor
+    char *received_msg = malloc(MSG_BUF); // Allocate string for avg time message
 
     if (sem_wait(t->one)) // Wait till unlocked
         handle_error("sem_wait error");
@@ -171,13 +151,11 @@ static void *thread_one(s_thread *t)
     int n = sizeof(proc) / sizeof(proc[0]);
  
     // Call average time
-    avg_time_msg = average_time(proc, n);
-
-    /* Fifo stuff --------------------*/
-    int fd;
+    received_msg = average_time(proc, n);
 
     // Create the FIFO (named pipe)
-    mkfifo(FIFONAME, 0666);
+    if(mkfifo(FIFONAME, 0666) < 0)
+        handle_error("mkfifo error");
 
     /* Unlock mutex and sempost two since fifo require both thread to run simultanously */
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
@@ -188,29 +166,25 @@ static void *thread_one(s_thread *t)
         handle_error("sem_post error");
     // printf("semposted 2!\n");
 
-    // write "Hi" to the FIFO */
-    fd = open(FIFONAME, O_WRONLY);
-    write(fd, avg_time_msg, strlen(avg_time_msg));
+    // TODO: THERE MIGHT BE AN ERROR HERE!
+    fd = open(FIFONAME, O_WRONLY); //Open FIFO for writing
+        // handle_error("open error");
+
+    write(fd, received_msg, MSG_BUF); // Write to FIFO
     
-    close(fd);
-          
-    /* remove the FIFO */
-    unlink(FIFONAME);
-
-
-    /* --------------------*/
-
-    // if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
-    //     handle_error("pthread_mutex_unlock error"); 
-    // if (sem_post(t->two)) // Release and unlock semaphore two
-    //     handle_error("sem_post error");
+    close(fd); // Close the FIFO       
+    if(unlink(FIFONAME) < 0) // Remove the FIFO 
+        handle_error("unlink error");
 }
 
 
 //thread 2
-// do mem stuff
+// Read from fifo and write to file
 static void *thread_two(s_thread *t)
 {
+
+    int fd; // FIFO read file descriptor
+    char buf[MAX_BUF]; // Buffer to receive data from FIFO
     FILE *output_fp = fopen(OUT_FILE, "w"); // Pointer to write to file
 
     if (sem_wait(t->two)) // Wait till unlocked
@@ -221,21 +195,17 @@ static void *thread_two(s_thread *t)
     // Do stuff here
     printf("In thread two:\n");
 
-    // fifo read
-    int fd;
-    char buf[MAX_BUF];
-
     // Open, read, and display the message from the FIFO
-    fd = open(FIFONAME, O_RDONLY);
-    if(read(fd, buf, MAX_BUF) == 0)
+    fd = open(FIFONAME, O_RDONLY); // Open FIFO for reading
+    if(read(fd, buf, MAX_BUF) == 0) // Read from FIFO
         printf("FIFO Empty");
     else{
         printf("%s\n", buf);
-        fprintf(output_fp, "%s", buf); // Write to file
+        fprintf(output_fp, "%s", buf); // Write to "output.txt" file
     }
 
     fclose(output_fp); // Close file pointer
-    close(fd);
+    close(fd); // Close FIFO
 
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
@@ -308,6 +278,7 @@ void turnaround_time(s_process proc[], int n, int wt[], int tat[])
 }
 
 // Calculate average time for wait time and turnaround time then display results
+// Return string of average time
 char *average_time(s_process proc[], int n)
 {
     int wt[n], tat[n], total_wt = 0, total_tat = 0;
@@ -330,42 +301,13 @@ char *average_time(s_process proc[], int n)
         // Display individual component
         printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
     }
-    float avg_wt;
-    float avg_tat;
 
-    avg_wt = (float)total_wt/(float)n;
-    avg_tat = (float)total_tat/(float)n;
+    float avg_wt = (float)total_wt/(float)n;
+    float avg_tat = (float)total_tat/(float)n;
     printf("\nAverage wait time: %f", avg_wt);
     printf("\nAverage turnaround time: %f\n", avg_tat);
     sprintf(avg_time_msg, "Average waiting time: %f\nAverage turn-around time: %f\n"
             , avg_wt, avg_tat);	
 
     return avg_time_msg;
-}
-
-void fifo_write(){
-    // int fd;
-
-    // /* create the FIFO (named pipe) */
-    // mkfifo(FIFONAME, 0666);
-
-    // /* write "Hi" to the FIFO */
-    // fd = open(FIFONAME, O_WRONLY);
-    // write(fd, "Hi", sizeof("Hi"));
-    // close(fd);
-
-    // /* remove the FIFO */
-    // unlink(FIFONAME);
-}
-
-void fifo_read(){
-    // int fd;
-    // char buf[MAX_BUF];
-
-    // /* open, read, and display the message from the FIFO */
-    // fd = open(FIFONAME, O_RDONLY);
-    // read(fd, buf, MAX_BUF);
-    // printf("Received: %s\n", buf);
-    // close(fd);
-
 }
