@@ -25,12 +25,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <string.h>
 
 
 
 
 #define FIFONAME "/tmp/myfifo"
 #define MAX_BUF 1024
+#define OUT_FILE "output.txt"
 
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -50,6 +52,8 @@ typedef struct{
     int bt; // Burst time
 }s_process;
 
+// float avg_wt;
+// float avg_tat;
 
 // pthread_mutex_t mutex; // Mutex lock
 // pthread_attr_t attr; // Set of thread attributes
@@ -61,7 +65,7 @@ static void *thread_two(s_thread *t);
 // SRTF process functions
 void wait_time(s_process proc[], int n, int wt[]);
 void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
-void average_time(s_process proc[], int n);
+char *average_time(s_process proc[], int n);
 // FIFO
 void fifo_write(); // Function to write to named pipe
 void fifo_read(); // Function to read from named pipe
@@ -144,6 +148,7 @@ void thread_init(s_thread *t)
 static void *thread_one(s_thread *t)
 {
     // s_thread *t; // Re-declare thread for private use
+    char *avg_time_msg = malloc(100);
 
     if (sem_wait(t->one)) // Wait till unlocked
         handle_error("sem_wait error");
@@ -151,7 +156,7 @@ static void *thread_one(s_thread *t)
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
-    printf("In thread one\n");
+    printf("In thread one:\n");
 
     // Set up process data
     s_process proc[] = {{ 1, 8, 10 }, 
@@ -166,7 +171,7 @@ static void *thread_one(s_thread *t)
     int n = sizeof(proc) / sizeof(proc[0]);
  
     // Call average time
-    average_time(proc, n);
+    avg_time_msg = average_time(proc, n);
 
     /* Fifo stuff --------------------*/
     int fd;
@@ -177,15 +182,15 @@ static void *thread_one(s_thread *t)
     /* Unlock mutex and sempost two since fifo require both thread to run simultanously */
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    printf("unlocked mutex in thread 1!\n");
+    // printf("unlocked mutex in thread 1!\n");
 
     if (sem_post(t->two)) // Release and unlock semaphore two
         handle_error("sem_post error");
-    printf("semposted 2!\n");
+    // printf("semposted 2!\n");
 
     // write "Hi" to the FIFO */
     fd = open(FIFONAME, O_WRONLY);
-    write(fd, "Hi", sizeof("Hi"));
+    write(fd, avg_time_msg, strlen(avg_time_msg));
     
     close(fd);
           
@@ -206,7 +211,7 @@ static void *thread_one(s_thread *t)
 // do mem stuff
 static void *thread_two(s_thread *t)
 {
-    // s_thread *t; // Re-declare thread for private use
+    FILE *output_fp = fopen(OUT_FILE, "w"); // Pointer to write to file
 
     if (sem_wait(t->two)) // Wait till unlocked
         handle_error("sem_wait error");
@@ -214,7 +219,7 @@ static void *thread_two(s_thread *t)
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
-    printf("In thread two\n");
+    printf("In thread two:\n");
 
     // fifo read
     int fd;
@@ -222,8 +227,14 @@ static void *thread_two(s_thread *t)
 
     // Open, read, and display the message from the FIFO
     fd = open(FIFONAME, O_RDONLY);
-    read(fd, buf, MAX_BUF);
-    printf("Received: %s\n", buf);
+    if(read(fd, buf, MAX_BUF) == 0)
+        printf("FIFO Empty");
+    else{
+        printf("%s\n", buf);
+        fprintf(output_fp, "%s", buf); // Write to file
+    }
+
+    fclose(output_fp); // Close file pointer
     close(fd);
 
 
@@ -297,9 +308,10 @@ void turnaround_time(s_process proc[], int n, int wt[], int tat[])
 }
 
 // Calculate average time for wait time and turnaround time then display results
-void average_time(s_process proc[], int n)
+char *average_time(s_process proc[], int n)
 {
     int wt[n], tat[n], total_wt = 0, total_tat = 0;
+    char *avg_time_msg = malloc(100);
 
     // Call wait_time function
     wait_time(proc, n, wt);
@@ -325,6 +337,10 @@ void average_time(s_process proc[], int n)
     avg_tat = (float)total_tat/(float)n;
     printf("\nAverage wait time: %f", avg_wt);
     printf("\nAverage turnaround time: %f\n", avg_tat);
+    sprintf(avg_time_msg, "Average waiting time: %f\nAverage turn-around time: %f\n"
+            , avg_wt, avg_tat);	
+
+    return avg_time_msg;
 }
 
 void fifo_write(){
