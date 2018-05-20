@@ -14,10 +14,18 @@ void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
 void average_time(s_process proc[], int n);
 
 int main(int argc, char *argv[]){
-    s_process proc[] = { { 1, 1, 6 }, { 2, 1, 8 },
-                    { 3, 2, 7 }, { 4, 3, 3 } };
+    s_process proc[] = {{ 1, 8, 10 }, 
+                        { 2, 10, 3 },
+                        { 3, 14, 7 }, 
+                        { 4,  9, 5 }, 
+                        { 5, 16, 4 }, 
+                        { 6, 21, 6 },
+                        { 7, 26, 2 }};
+    
+    // Number of processes                    
     int n = sizeof(proc) / sizeof(proc[0]);
  
+    // Call average time
     average_time(proc, n);
 
     return 0;
@@ -86,7 +94,7 @@ void turnaround_time(s_process proc[], int n, int wt[], int tat[])
         tat[i] = proc[i].bt + wt[i];
 }
 
-// Calculate average time for wait time and turnaround time
+// Calculate average time for wait time and turnaround time then display results
 void average_time(s_process proc[], int n)
 {
     int wt[n], tat[n], total_wt = 0, total_tat = 0;

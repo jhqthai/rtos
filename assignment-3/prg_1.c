@@ -1,21 +1,27 @@
 /*! @file
  *  
- *  @brief A multi-threads program for read and writing data using pipe-line concept
- *  Program 1 - CPU scheduling and FIFOs 
+ *  @brief A multi-threads program that applies 
+ *  CPU scheduling using Shortest-Remaining-Time-First (SRTF) algorithm
+ *  and read/write data using FIFO concept
  * 
- *  Program runtime information is saved in shared memory.
- *  The information can be viewed by running prg_2.
+ *  CPU scheduling information is saved in CPU memory.
+ *  The information can be viewed in "output.txt" file after execution.
  * 
  *  Compilation instruction: gcc -pthread -o prg_1 prg_1.c
  *  
+ *  Acknowledgement: 
+ *  SRTF method - https://tinyurl.com/y9zevrn9 
+ *  
  *  @author John Thai
- *  @date 2018-04-27 
+ *  @date 2018-05-20 
  */ 
 
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <stdbool.h>
 
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -26,15 +32,26 @@ typedef struct{
     sem_t *two; // Semaphore two control
     pthread_mutex_t *mutex; // Mutex lock
     pthread_attr_t *attr; // Set of thread attributes
-
 }s_thread;
+
+// SRTF process struct
+typedef struct{
+    int pid; // Process ID
+    int art; // Arrival time
+    int bt; // Burst time
+}s_process;
 
 // pthread_mutex_t mutex; // Mutex lock
 // pthread_attr_t attr; // Set of thread attributes
-
+/* Functions declaration */
+// Thread functions
 void thread_init(s_thread *t);
 static void *thread_one(s_thread *t);
 static void *thread_two(s_thread *t);
+// SRTF process functions
+void wait_time(s_process proc[], int n, int wt[]);
+void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
+void average_time(s_process proc[], int n);
 
 int main (int argc, char *argv[])
 {
@@ -119,7 +136,22 @@ static void *thread_one(s_thread *t)
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
-    printf("In thread one");
+    printf("In thread one\n");
+
+    // Set up process data
+    s_process proc[] = {{ 1, 8, 10 }, 
+                        { 2, 10, 3 },
+                        { 3, 14, 7 }, 
+                        { 4,  9, 5 }, 
+                        { 5, 16, 4 }, 
+                        { 6, 21, 6 },
+                        { 7, 26, 2 }};
+        
+    // Number of processes                    
+    int n = sizeof(proc) / sizeof(proc[0]);
+ 
+    // Call average time
+    average_time(proc, n);
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
@@ -140,10 +172,99 @@ static void *thread_two(s_thread *t)
         handle_error("pthread_mutex_lock error"); 
 
     // Do stuff here
-    printf("In thread two");
+    printf("In thread two\n");
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
     if (sem_post(t->one)) // Release and unlock semaphore one
         handle_error("sem_post error");
+}
+
+/* Function to find all processes wait time */
+void wait_time(s_process proc[], int n, int wt[])
+{
+    int rt[n]; //Remaining time
+
+    // Copy burst time into rt[]
+    for(int i = 0; i < n; i++)
+        rt[i] = proc[i].bt;
+
+    int complete = 0, t = 0, min = INT_MAX; // Set min to max for later comparision
+    int shortest = 0, finish_time;
+    bool check = false;
+
+    // Run till all process completed
+    while(complete != n) {
+        // Find process with minimum remaining time from all arrived processes till current time
+        for(int j = 0; j < n; j++) {
+            if((proc[j].art <= t) && (rt[j] < min) && rt[j] > 0)
+            {
+                min = rt[j];
+                shortest = j;
+                check = true;
+            }
+        }
+
+        if (check == false){
+            t++;
+            continue;
+        }
+
+        rt[shortest]--; // Reduce remaining time
+
+        // Update minimum
+        min = rt[shortest];
+        if (min == 0)
+            min = INT_MAX;
+
+        // If a process gets completely executed
+        if (rt[shortest] == 0)
+        {
+            complete++; // Increment complete
+
+            // Set finish time for current process
+            finish_time = t+1;
+
+            // Calculate waiting time
+            wt[shortest] = finish_time - proc[shortest].bt - proc[shortest].art;
+            
+            if (wt[shortest] < 0)
+                wt[shortest] = 0;
+        }
+        t++; // Increment time
+    }
+}
+   
+/* Function to calculate turnaround time */
+void turnaround_time(s_process proc[], int n, int wt[], int tat[])
+{
+    // Calculate turnaround time
+    for (int i = 0; i < n; i++)
+        tat[i] = proc[i].bt + wt[i];
+}
+
+// Calculate average time for wait time and turnaround time then display results
+void average_time(s_process proc[], int n)
+{
+    int wt[n], tat[n], total_wt = 0, total_tat = 0;
+
+    // Call wait_time function
+    wait_time(proc, n, wt);
+
+    // Call turnaround_time function
+    turnaround_time(proc, n, wt, tat);
+
+    // Display result headings
+    printf("\tProcess ID\tArrival Time\tBurst Time\tWait Time\tTurnaround Time\n");
+
+    // Calculate total wait time and turnaround time
+    for(int i = 0; i < n; i++) {
+        total_wt = total_wt + wt[i];
+        total_tat = total_tat + tat[i];
+
+        // Display individual component
+        printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
+    }
+    printf("\nAverage wait time: %f", (float)total_wt/(float)n);
+    printf("\nAverage turnaround time: %f\n", (float)total_tat/(float)n);
 }
