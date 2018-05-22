@@ -39,7 +39,7 @@ bool finish[NUM_PROC];
 int completed_process[NUM_PROC]; // Array to store completed process
 int incompleted_process[NUM_PROC]; // Array to store incompleted process
 bool complete = false; // Flag to check if possible to continue running process after first run
-int complete_count = 0; // Keep track complete_process array
+int complete_count = 0; // Keep track complete processes
 int sequence_process[NUM_PROC];
 
 // Functions declaration
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	// Call function for deadlock detection
 	detector();
 	
-	// No deadlock output sequence IDs
+	// Check if noo deadlock then output sequence IDs
 	if (complete_count == NUM_PROC)
 	{
 		printf("No Deadlock Occured.\nProcess sequence IDs: "); // Print to console
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 		
 	}
 	
-	// Deadlock output deadlock sequence IDs
+	// Check if deadlock then output deadlock sequence IDs
 	if (complete_count < NUM_PROC)
 	{
 		printf("Deadlock Occured.\nDeadlocked process IDs: ");
@@ -154,12 +154,11 @@ void readFile()
 void detector ()
 {		
 	// Variables delcaration
-	int dead_count = 0; // Stores number of loop for multi-round check
 	int initial_resource = NUM_RESOURCE;
 	int initial_process = NUM_PROC;
-	//int incomplete_count = 0;
-	int sequence = 0; // Variable to check the current process sequence
-	bool lesquest[initial_process]; // bool for request < work
+	int safety_count = 0; // Stores number of loop for multi-round check
+	int sequence = 0; // Current sequence process
+	bool lesquest[initial_process]; // Bool for request < work
 	
 	//Set available resource to work
 	int work[NUM_RESOURCE];
@@ -178,8 +177,8 @@ void detector ()
 			finish[i] = false; // Set finish to false if resource available in alloc
 	}
 		
-	// Multi-loop for any case of deadlock case
-	while(dead_count < NUM_PROC)
+	// Multi-loop safety check for deadlock scenario
+	while(safety_count < NUM_PROC)
 	{
 		// Check if request is less than work for all false finish */
 		for (int i = 0; i < initial_process; i++) // Loop through each process
@@ -213,16 +212,15 @@ void detector ()
 				
 				finish[i] = true;
 				
-        // Store everything in order
+       			// Store everything in order
 				sequence_process[sequence] = i; 
 				sequence++;
 				
 			}			
 		} // End of for loop	
-		k++;
+		safety_count++; // Increment count
 	}
-	
-	complete_count = sequence;
+	complete_count = sequence; // Set sequence to global complete count
 		
 	printf("Complete count: %i\n", complete_count);
 }
@@ -233,6 +231,7 @@ void detector ()
  */
 void signalHandler(int sig)
 {
+	// Check if signal is received
 	if (sig == SIGUSR1)
 		printf("Writing to output_topic2.txt has finished.\n");
 }
