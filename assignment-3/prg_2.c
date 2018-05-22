@@ -146,18 +146,26 @@ void readFile()
 }
 
 
-// Detect deadlock
-// Loop through till no-deadlock or till process being try count twice (being looped 2times continuously?)
+/*! @brief Detect deadlock
+ *  
+ *  Detect deadlock and stores process sequence with or without deadlock
+ *  @return - void
+ */
 void detector ()
 {		
 	// Variables delcaration
-	int k = 0;
+	int dead_count = 0; // Stores number of loop for multi-round check
 	int initial_resource = NUM_RESOURCE;
 	int initial_process = NUM_PROC;
 	//int incomplete_count = 0;
 	int sequence = 0; // Variable to check the current process sequence
 	bool lesquest[initial_process]; // bool for request < work
 	
+	//Set available resource to work
+	int work[NUM_RESOURCE];
+	for (int i = 0; i < initial_resource; i++)
+		work[i] = avail[i];
+		
 	/* Check for empty allocation resources in all processes */
 	for (int i = 0; i < NUM_PROC; i++)
 	{ // Loop through processes
@@ -169,24 +177,16 @@ void detector ()
 		else
 			finish[i] = false; // Set finish to false if resource available in alloc
 	}
-	
-	//Set available resource to work
-	int work[NUM_RESOURCE];
-	for (int i = 0; i < initial_resource; i++)
-		work[i] = avail[i];
 		
-	
-	
-	// check if any finished is false and hasn't been loop through twice
-	// or set a global incomplete flag and the same value has not been loop over twice continuously?
-	while(k < NUM_PROC)
+	// Multi-loop for any case of deadlock case
+	while(dead_count < NUM_PROC)
 	{
 		// Check if request is less than work for all false finish */
 		for (int i = 0; i < initial_process; i++) // Loop through each process
 		{
 			int count = 0; // Counter to compare request and work
 			//Check if request is less than work for all false finish
-			while (count < initial_resource && finish[i] == false) // Loop through each resource
+			while (count < initial_resource && finish[i] == false)
 			{
 				if(request[i][count] <= work[count]) // Comparing each resource
 				{
@@ -201,10 +201,10 @@ void detector ()
 				}
 			} // End of while loop
 		
-			// Process 3
-			if (lesquest[i] && finish[i] == false) //Check if request < work and finish is already false
+			//Check if request < work and finish is already false
+			if (lesquest[i] && finish[i] == false) 
 			{
-				//printf("work: "); // TEST
+				// Compute new work
 				for(int j = 0; j < initial_resource; j++)
 				{
 					work[j] += alloc[i][j];
