@@ -26,8 +26,11 @@ void sort(process p[], int start, int num)
            //swap the less burst time to the front
            if(p[i].burst_t > p[j].burst_t)//if the front is larger than the back, swap	
            {
-			   //add your program here.
-		    }
+			     //add your program here.
+			     // temp = a
+			     // a = b
+			     // b = temp
+		       }
         }
    }
 }//sort end
