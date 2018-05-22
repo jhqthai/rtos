@@ -212,9 +212,8 @@ void detector ()
 				}
 				
 				finish[i] = true;
-				
-        // Store everything in order
-				sequence_process[sequence] = i; 
+				// Save completed process id
+				sequence_process[sequence] = i; // Store everything in order
 				sequence++;
 				
 			}			
