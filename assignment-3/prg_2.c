@@ -1,6 +1,6 @@
 /*! @file
  *  
- *  @brief A deadlock detection program that reads from the provided file
+ *  @brief A deadlock detection program uses value from provided text file.
  *  
  *  The information can be viewed on console 
  *  and in "output_topic2.txt" after excution
@@ -9,8 +9,10 @@
  *
  *  Compilation instruction: gcc -o prg_2 prg_2.c -std=c99
  *  
+ * 	Acknowledgement: Emily Tiang - Easy simple file reading concept
+ * 
  *  @author John Thai
- *  @date 2018-05-22 
+ *  @date 2018-05-22
  */ 
  
 #define _POSIX_SOURCE
@@ -30,22 +32,19 @@
 #define handle_error(msg) \
 do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-
+// Array to store values read from file
 int request[NUM_PROC][NUM_RESOURCE];
 int alloc[NUM_PROC][NUM_RESOURCE];
 int avail[NUM_RESOURCE];
 
-bool finish[NUM_PROC];
-int completed_process[NUM_PROC]; // Array to store completed process
-int incompleted_process[NUM_PROC]; // Array to store incompleted process
-bool complete = false; // Flag to check if possible to continue running process after first run
-int complete_count = 0; // Keep track complete processes
-int sequence_process[NUM_PROC];
+bool finish[NUM_PROC]; // Array of bool for finish status flag
+int complete_count; // Keep track complete processes
+int sequence_process[NUM_PROC]; // Array to store processes in sequence
 
 // Functions declaration
 void detector(); // Function to detect deadlock
 void readFile(); // Function to read from file
-void signalHandler(int sig); // User signal handler when complete write to file
+void signalHandler(int sig); // User signal handler
 
 
 int main(int argc, char *argv[])
@@ -56,11 +55,11 @@ int main(int argc, char *argv[])
 	
 	// Open file to write
 	FILE *output_fp = fopen(OUT_FILE, "w");
-  if (output_fp == NULL){ //Error handling
-      perror("fopen output_fp error");
-      if (fclose(output_fp))
-          perror("fclose output_fp error");
-      exit(EXIT_FAILURE);
+  	if (output_fp == NULL){ //Error handling
+		perror("fopen output_fp error");
+		if (fclose(output_fp))
+			perror("fclose output_fp error");
+		exit(EXIT_FAILURE);
 	}
 	
 	// Call function to read from file
@@ -69,12 +68,12 @@ int main(int argc, char *argv[])
 	// Call function for deadlock detection
 	detector();
 	
-	// Check if noo deadlock then output sequence IDs
+	// Check if no deadlock then output sequence IDs
 	if (complete_count == NUM_PROC)
 	{
-		printf("No Deadlock Occured.\nProcess sequence IDs: "); // Print to console
-		fprintf(output_fp, "No Deadlock Occured.\nProcess sequence IDs: "); // Write to file
-		for (int i = 0; i < (NUM_PROC); i++)
+		printf("No Deadlock Occured.\nSequence process IDs: "); // Print to console
+		fprintf(output_fp, "No Deadlock Occured.\nSequence process IDs: "); // Write to file
+		for (int i = 0; i < (NUM_PROC); i++) // Loop through processes
 		{
 			printf("P%i\t", sequence_process[i]); // Print process id to console
 			fprintf(output_fp, "P%i\t", sequence_process[i]); // Write process id to file
@@ -86,11 +85,11 @@ int main(int argc, char *argv[])
 	// Check if deadlock then output deadlock sequence IDs
 	if (complete_count < NUM_PROC)
 	{
-		printf("Deadlock Occured.\nDeadlocked process IDs: ");
-		fprintf(output_fp, "No Deadlock Occured.\nProcess sequence IDs: ");
-		for (int j = 0; j < (NUM_PROC); j++)
+		printf("Deadlock Occured!\nDeadlock process ID(s): ");
+		fprintf(output_fp, "Deadlock Occured!\nDeadlock process ID(s): ");
+		for (int j = 0; j < (NUM_PROC); j++) // Loop through processes
 		{
-			if (!(finish[j]))
+			if (!(finish[j])) // Check if process is finished
 			{
 				printf("P%i\t", j); // Print process id to console
 				fprintf(output_fp, "P%i\t", j); // Write process id to file
@@ -115,34 +114,26 @@ void readFile()
 	
 	// Open file to read
 	FILE *proc_fp = fopen(DATA_FILE, "r");
-  if (proc_fp == NULL){ //Error handling
-    perror("fopen proc_fp error");
-    if (fclose(proc_fp))
-        perror("fclose proc_fp error");
+  	if (proc_fp == NULL){ //Error handling
+		perror("fopen proc_fp error");
+		if (fclose(proc_fp))
+			perror("fclose proc_fp error");
 		exit(EXIT_FAILURE);
 	}
 	
 	// Scan the first 2 lines to get it out of the way
 	fgets(line, sizeof(line), proc_fp);
-	puts(line);
 	fgets(line, sizeof(line), proc_fp);
-	puts(line);
 	
 	// Scan first process including available
 	fscanf(proc_fp, "%s %i %i %i %i %i %i %i %i %i", line, &alloc[0][0], &alloc[0][1], &alloc[0][2], &request[0][0], &request[0][1], &request[0][2], &avail[0], &avail[1], &avail[2]);
-	// Print to console
-	printf("%s          %i %i %i       %i %i %i       %i %i %i\n", line, alloc[0][0], alloc[0][1], alloc[0][2], request[0][0], request[0][1], request[0][2], avail[0], avail[1], avail[2]);
 	
 	// Scan the rest of the processes
 	for (int i = 1; i < NUM_PROC; i++)
-	{
 		fscanf(proc_fp, "%s %i %i %i %i %i %i", line, &alloc[i][0], &alloc[i][1], &alloc[i][2], &request[i][0], &request[i][1], &request[i][2]);
-		// Print to console
-		printf("%s          %i %i %i       %i %i %i\n", line, alloc[i][0], alloc[i][1], alloc[i][2], request[i][0], request[i][1], request[i][2]);
-	}
 	
 	if (fclose(proc_fp)) // Close file
-	  handle_error("fclose proc_fp error");
+		handle_error("fclose proc_fp error");
 }
 
 
@@ -221,8 +212,6 @@ void detector ()
 		safety_count++; // Increment count
 	}
 	complete_count = sequence; // Set sequence to global complete count
-		
-	printf("Complete count: %i\n", complete_count);
 }
 /*! @brief Handle user defined signal
  *  

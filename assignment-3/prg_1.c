@@ -7,7 +7,7 @@
  *  CPU scheduling information is saved in CPU memory.
  *  The information can be viewed in "output.txt" file after execution.
  * 
- *  Compilation instruction: gcc -pthread -o prg_1 prg_1.c
+ *  Compilation instruction: gcc -pthread -o prg_1 prg_1.c -std=c99
  *  
  *  Acknowledgement: 
  *  SRTF method - https://tinyurl.com/y9zevrn9 
@@ -28,17 +28,17 @@
 #include <string.h>
 
 
-#define FIFONAME "/tmp/myfifo"
-#define MAX_BUF 1024
-#define OUT_FILE "output.txt"
-#define MSG_BUF 100
+#define FIFONAME "/tmp/myfifo" // FIFO file
+#define OUT_FILE "output.txt" // Output file
+#define MAX_BUF 1024 // FIFO buffer
+#define MSG_BUF 100 // File message buffer
 
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 // Thread control struct
 typedef struct{
-    sem_t *one;
+    sem_t *one; // Semaphore one control
     sem_t *two; // Semaphore two control
     pthread_mutex_t *mutex; // Mutex lock
     pthread_attr_t *attr; // Set of thread attributes
@@ -52,15 +52,12 @@ typedef struct{
 }s_process;
 
 /* Functions declaration */
-// Thread functions
-void thread_init(s_thread *t);
-static void *thread_one(s_thread *t);
-static void *thread_two(s_thread *t);
-// SRTF process functions
-void wait_time(s_process proc[], int n, int wt[]);
-void turnaround_time(s_process proc[], int n, int wt[], int tat[]);
-char *average_time(s_process proc[], int n);
-
+void thread_init(s_thread *t); // Thread data initialisation
+static void *thread_one(s_thread *t); // SRTF and FIFO write thread
+static void *thread_two(s_thread *t); // FIFO read and file write thread
+void wait_time(s_process proc[], int n, int wt[]); // Wait time calc. function
+void turnaround_time(s_process proc[], int n, int wt[], int tat[]); // Turnaround time calc. function
+char *average_time(s_process proc[], int n); // Average time calc. function
 
 int main (int argc, char *argv[])
 {
@@ -101,7 +98,8 @@ int main (int argc, char *argv[])
     // Free memory allocated to semaphores
     sem_destroy(&one);
     sem_destroy(&two);
-
+		
+	printf("Program execution completed!\n");
     exit(EXIT_SUCCESS);; // Program excuted all good!
 }
 
@@ -123,8 +121,11 @@ void thread_init(s_thread *t)
 
 }
 
-// thread 1
-// Do sjf stuff, write to FIFO
+/*! @brief Simulate CPU scheduling by applying SRTF algorithm and write to FIFO
+ *  
+ *  @param *t - A pointer to s_thread structure
+ *  @return - void
+ */
 static void *thread_one(s_thread *t)
 {
     int fd; // FIFO write file descriptor
@@ -134,9 +135,6 @@ static void *thread_one(s_thread *t)
         handle_error("sem_wait error");
     if (pthread_mutex_lock(t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
-
-    // Do stuff here
-    printf("In thread one:\n");
 
     // Set up process data
     s_process proc[] = {{ 1, 8, 10 }, 
@@ -160,17 +158,16 @@ static void *thread_one(s_thread *t)
     /* Unlock mutex and sempost two since fifo require both thread to run simultanously */
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
-    // printf("unlocked mutex in thread 1!\n");
 
     if (sem_post(t->two)) // Release and unlock semaphore two
         handle_error("sem_post error");
-    // printf("semposted 2!\n");
 
-    // TODO: THERE MIGHT BE AN ERROR HERE!
     fd = open(FIFONAME, O_WRONLY); //Open FIFO for writing
-        // handle_error("open error");
 
     write(fd, received_msg, MSG_BUF); // Write to FIFO
+    
+    // Free allocated memory
+    free(received_msg);
     
     close(fd); // Close the FIFO       
     if(unlink(FIFONAME) < 0) // Remove the FIFO 
@@ -178,35 +175,45 @@ static void *thread_one(s_thread *t)
 }
 
 
-//thread 2
-// Read from fifo and write to file
+
+/*! @brief Reads data from FIFO and write to "output.txt" file
+ *  
+ *  @param *t - A pointer to s_thread structure
+ *  @return - void
+ */
 static void *thread_two(s_thread *t)
 {
 
     int fd; // FIFO read file descriptor
     char buf[MAX_BUF]; // Buffer to receive data from FIFO
     FILE *output_fp = fopen(OUT_FILE, "w"); // Pointer to write to file
-
+    if (output_fp == NULL) //Error handling
+    { 
+        perror("fopen output_fp error");
+        if (fclose(output_fp))
+            perror("fclose output_fp error");
+        exit(EXIT_FAILURE);
+	}
+		
     if (sem_wait(t->two)) // Wait till unlocked
         handle_error("sem_wait error");
     if (pthread_mutex_lock(t->mutex)) // Lock mutex to prevent concurrent threads execution
         handle_error("pthread_mutex_lock error"); 
 
-    // Do stuff here
-    printf("In thread two:\n");
-
     // Open, read, and display the message from the FIFO
     fd = open(FIFONAME, O_RDONLY); // Open FIFO for reading
     if(read(fd, buf, MAX_BUF) == 0) // Read from FIFO
         printf("FIFO Empty");
-    else{
-        printf("%s\n", buf);
+    else
+    {
         fprintf(output_fp, "%s", buf); // Write to "output.txt" file
+        printf("Sucessfully written to file. ");
     }
 
-    fclose(output_fp); // Close file pointer
+    if (fclose(output_fp)) // Close file pointer
+        handle_error("fclose output_fp error");
+    
     close(fd); // Close FIFO
-
 
     if (pthread_mutex_unlock(t->mutex)) // Release mutex lock
         handle_error("pthread_mutex_unlock error"); 
@@ -214,23 +221,31 @@ static void *thread_two(s_thread *t)
         handle_error("sem_post error");
 }
 
-/* Function to find all processes wait time */
+
+/*! @brief Find all processes wait time
+ *  
+ *  @param proc - A pointer to s_proccess structure
+ *	@param n - Number of processes
+ *	@param wt[] - Array to store wait time
+ *  @return - void
+ */
 void wait_time(s_process proc[], int n, int wt[])
 {
     int rt[n]; //Remaining time
-
+    int complete = 0, t = 0, min = INT_MAX; // Set min to max for later comparision
+    int shortest = 0, finish_time;
+    bool check = false;
+    
     // Copy burst time into rt[]
     for(int i = 0; i < n; i++)
         rt[i] = proc[i].bt;
 
-    int complete = 0, t = 0, min = INT_MAX; // Set min to max for later comparision
-    int shortest = 0, finish_time;
-    bool check = false;
-
     // Run till all process completed
-    while(complete != n) {
+    while(complete != n) 
+    {
         // Find process with minimum remaining time from all arrived processes till current time
-        for(int j = 0; j < n; j++) {
+        for(int j = 0; j < n; j++) 
+        {
             if((proc[j].art <= t) && (rt[j] < min) && rt[j] > 0)
             {
                 min = rt[j];
@@ -239,7 +254,8 @@ void wait_time(s_process proc[], int n, int wt[])
             }
         }
 
-        if (check == false){
+        if (check == false)
+        {
             t++;
             continue;
         }
@@ -269,7 +285,14 @@ void wait_time(s_process proc[], int n, int wt[])
     }
 }
    
-/* Function to calculate turnaround time */
+/*! @brief Calculate turnaround time
+ *  
+ *  @param proc - A pointer to s_proccess structure
+ *	@param n - Number of processes
+ *	@param wt[] - Array to store wait time
+ *	@param tat[] - Array to turnaround time
+ *  @return - void
+ */
 void turnaround_time(s_process proc[], int n, int wt[], int tat[])
 {
     // Calculate turnaround time
@@ -277,12 +300,20 @@ void turnaround_time(s_process proc[], int n, int wt[], int tat[])
         tat[i] = proc[i].bt + wt[i];
 }
 
-// Calculate average time for wait time and turnaround time then display results
-// Return string of average time
+
+/*! @brief Calculate average time for wait time and turnaround time then display results
+ *  
+ *  @param proc - A pointer to s_proccess structure
+ *	@param n - Number of processes
+ *  @return - string of average time
+ */
 char *average_time(s_process proc[], int n)
 {
+    // Variables declaration
     int wt[n], tat[n], total_wt = 0, total_tat = 0;
-    char *avg_time_msg = malloc(100);
+    
+    // Allocate memory to string
+    char *avg_time_msg = malloc(MSG_BUF);
 
     // Call wait_time function
     wait_time(proc, n, wt);
@@ -291,23 +322,28 @@ char *average_time(s_process proc[], int n)
     turnaround_time(proc, n, wt, tat);
 
     // Display result headings
-    printf("\tProcess ID\tArrival Time\tBurst Time\tWait Time\tTurnaround Time\n");
+    printf("Process ID\tArrival Time\tBurst Time\tWait Time\tTurnaround Time\n");
 
     // Calculate total wait time and turnaround time
-    for(int i = 0; i < n; i++) {
+    for(int i = 0; i < n; i++) 
+    {
         total_wt = total_wt + wt[i];
         total_tat = total_tat + tat[i];
 
         // Display individual component
-        printf("\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
+        printf("%d\t\t%d\t\t%d\t\t%d\t\t%d\n", proc[i].pid, proc[i].art, proc[i].bt, wt[i], tat[i]);
     }
-
-    float avg_wt = (float)total_wt/(float)n;
+		
+    // Average time calculation
+    float avg_wt = (float)total_wt/(float)n; 
     float avg_tat = (float)total_tat/(float)n;
-    printf("\nAverage wait time: %f", avg_wt);
-    printf("\nAverage turnaround time: %f\n", avg_tat);
-    sprintf(avg_time_msg, "Average waiting time: %f\nAverage turn-around time: %f\n"
-            , avg_wt, avg_tat);	
-
+    
+    // Print to console for users
+    printf("Average wait time: %f\n", avg_wt);
+    printf("Average turnaround time: %f\n", avg_tat);
+    
+    // Convert to string
+    sprintf(avg_time_msg, "Average waiting time: %f\nAverage turn-around time: %f\n", avg_wt, avg_tat);	
+		 
     return avg_time_msg;
 }
